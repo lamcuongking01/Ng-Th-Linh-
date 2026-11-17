@@ -10,6 +10,11 @@ import IntroStage from './components/stages/IntroStage';
 import LetterStage from './components/stages/LetterStage';
 import WishesStage from './components/stages/WishesStage';
 import type { TributeStage } from './data/tributeData';
+import {
+  playFinaleCelebrationSound,
+  playOpenLetterSound,
+  playTransitionSound,
+} from './utils/soundEffects';
 
 const NAV_STAGES: { id: TributeStage; label: string }[] = [
   { id: 'intro', label: 'Mở đầu' },
@@ -46,10 +51,23 @@ export default function App() {
   const initial = readInitialQueryParams();
   const [stage, setStage] = useState<TributeStage>(initial.stage);
   const [instantUnlock] = useState<boolean>(initial.instantUnlock);
+  const [autoPlaySignal, setAutoPlaySignal] = useState(0);
 
   useEffect(() => {
     document.body.dataset.stage = stage;
   }, [stage]);
+
+  const goToStage = (nextStage: TributeStage) => {
+    if (nextStage === 'letter') {
+      playOpenLetterSound();
+      setAutoPlaySignal((n) => n + 1);
+    } else if (nextStage === 'finale') {
+      playFinaleCelebrationSound();
+    } else {
+      playTransitionSound();
+    }
+    setStage(nextStage);
+  };
 
   const isFinale = stage === 'finale';
 
@@ -86,7 +104,7 @@ export default function App() {
         {/* Zone 1: Single-line Brand Title */}
         <button
           type="button"
-          onClick={() => setStage('intro')}
+          onClick={() => goToStage('intro')}
           className="font-display text-left text-base font-bold tracking-tight whitespace-nowrap shrink-0 sm:text-lg"
         >
           Cô Ngô Thị Linh · 20/11
@@ -103,7 +121,7 @@ export default function App() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setStage(item.id)}
+                onClick={() => goToStage(item.id)}
                 className={`text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
                   active
                     ? isFinale
@@ -124,7 +142,7 @@ export default function App() {
         <div className="shrink-0">
           <button
             type="button"
-            onClick={() => setStage(isFinale ? 'intro' : 'finale')}
+            onClick={() => goToStage(isFinale ? 'intro' : 'finale')}
             className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
               isFinale
                 ? 'bg-rose-500 text-white hover:bg-rose-400'
@@ -139,33 +157,33 @@ export default function App() {
       {/* Main Stage Content */}
       <main className="relative z-20">
         {stage === 'intro' && (
-          <IntroStage onOpenLetter={() => setStage('letter')} />
+          <IntroStage onOpenLetter={() => goToStage('letter')} />
         )}
         {stage === 'letter' && (
           <LetterStage
-            onContinue={() => setStage('bouquet')}
+            onContinue={() => goToStage('bouquet')}
             instantUnlock={instantUnlock}
           />
         )}
         {stage === 'bouquet' && (
           <BouquetStage
-            onNext={() => setStage('wishes')}
+            onNext={() => goToStage('wishes')}
             instantUnlock={instantUnlock}
           />
         )}
         {stage === 'wishes' && (
-          <WishesStage onProceedToGallery={() => setStage('gallery')} />
+          <WishesStage onProceedToGallery={() => goToStage('gallery')} />
         )}
         {stage === 'gallery' && (
-          <GalleryStage onFinish={() => setStage('finale')} />
+          <GalleryStage onFinish={() => goToStage('finale')} />
         )}
         {stage === 'finale' && (
-          <FinaleStage onRestart={() => setStage('intro')} />
+          <FinaleStage onRestart={() => goToStage('intro')} />
         )}
       </main>
 
       {/* Bottom-left Spinning Vinyl Music Player */}
-      <VinylMusicPlayer />
+      <VinylMusicPlayer autoPlaySignal={autoPlaySignal} />
     </div>
   );
 }

@@ -9,12 +9,17 @@ const TRACK_MELODIES: Record<string, number[]> = {
   'track-2': [293.66, 349.23, 440.0, 523.25, 440.0, 392.0, 349.23, 329.63],
 };
 
-export default function VinylMusicPlayer() {
+interface VinylMusicPlayerProps {
+  autoPlaySignal?: number;
+}
+
+export default function VinylMusicPlayer({ autoPlaySignal = 0 }: VinylMusicPlayerProps) {
   const [trackIndex, setTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [customUrls, setCustomUrls] = useState<Record<string, string>>({});
   const [usingSynthFallback, setUsingSynthFallback] = useState(false);
+  const hasInteractedRef = useRef(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -129,7 +134,15 @@ export default function VinylMusicPlayer() {
     }
   };
 
+  useEffect(() => {
+    if (autoPlaySignal > 0 && !isPlaying && !hasInteractedRef.current) {
+      void attemptPlay(activeTrack);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPlaySignal]);
+
   const togglePlay = () => {
+    hasInteractedRef.current = true;
     if (isPlaying) {
       setIsPlaying(false);
       audioRef.current?.pause();
