@@ -10,21 +10,22 @@ export default defineConfig(() => {
     plugins: [
       react(),
       tailwindcss(),
-      // Copies src/assets into dist/ so root-relative URLs like
-      // "/src/assets/images/..." (e.g. generate_image output) still resolve
-      // in production builds. Do not remove.
       {
-        name: 'copy-unbundled-src-assets',
+        name: 'copy-static-root-files',
         apply: 'build',
         closeBundle(error?: Error): void {
           if (error) {
             return;
           }
           const distDir = path.resolve(__dirname, 'dist');
-          const srcAssets = path.resolve(__dirname, 'src/assets');
-          const distAssets = path.resolve(distDir, 'src/assets');
-          if (fs.existsSync(distDir) && fs.existsSync(srcAssets)) {
-            fs.cpSync(srcAssets, distAssets, {recursive: true, force: true});
+          if (!fs.existsSync(distDir)) {
+            return;
+          }
+          for (const file of ['style.css', 'script.js', 'bai1.mp3', 'bai2.mp3']) {
+            const srcFile = path.resolve(__dirname, file);
+            if (fs.existsSync(srcFile)) {
+              fs.copyFileSync(srcFile, path.resolve(distDir, file));
+            }
           }
         },
       },
