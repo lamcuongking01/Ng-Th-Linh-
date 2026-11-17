@@ -1,11 +1,13 @@
-<div align="center">
+# Tri Ân 20/11 · Cô Ngô Thị Linh
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Trang web thiệp chúc mừng ngày Nhà giáo Việt Nam 20/11 gửi tặng cô **Ngô Thị Linh** cùng tập thể **45 học sinh**.
 
-  <h1>Built with AI Studio</h2>
+## Cách thêm nhạc MP3 trước khi đưa lên GitHub
+Đặt 2 file nhạc vào thư mục `public/`:
+- `public/bai1.mp3`
+- `public/bai2.mp3`
 
-  <p>The fastest path from prompt to production with Gemini.</p>
-
-  <a href="https://aistudio.google.com/apps">Start building</a>
-
-</div>
+## Đẩy lên GitHub & tự động build lên GitHub Pages
+1. Đẩy toàn bộ mã nguồn lên nhánh `main` của repository GitHub.
+2. Vào **Settings -> Pages -> Build and deployment**, chọn **Source: GitHub Actions**.
+3. Workflow `.github/workflows/deploy.yml` sẽ tự động chạy `npm run build` và xuất bản trang web.

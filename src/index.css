@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-sans);
+    background-color: #fff1f5;
+    color: #4c0519;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+  }
+}
+
+@keyframes vinylSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vinyl-disc-spin {
+  animation: vinylSpin 7s linear infinite;
+}
+
+@keyframes petalFall {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.78;
+  }
+  88% {
+    opacity: 0.68;
+  }
+  100% {
+    transform: translate3d(48px, 108vh, 0) rotate(320deg);
+    opacity: 0;
+  }
+}
+
+.petal-drift {
+  animation-name: petalFall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes floatGentle {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+.float-gentle {
+  animation: floatGentle 3.6s ease-in-out infinite;
+}
+
+@keyframes creditsRise {
+  0% {
+    transform: translate3d(0, 0%, 0);
+  }
+  100% {
+    transform: translate3d(0, -50%, 0);
+  }
+}
+
+.credits-scroll-up {
+  animation: creditsRise 38s linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vinyl-disc-spin,
+  .petal-drift,
+  .float-gentle,
+  .credits-scroll-up {
+    animation: none !important;
+  }
+}

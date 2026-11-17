@@ -1,0 +1,8 @@
+{
+  "name": "Tri Ân 20/11 · Cô Ngô Thị Linh",
+  "description": "Trang web chúc mừng ngày Nhà giáo Việt Nam 20/11 gửi tặng cô Ngô Thị Linh với trái tim 3D hạt ánh sáng, lá thư tri ân, bó hoa hồng phấn, album kỷ niệm, nhạc đĩa than và pháo hoa cùng 45 học sinh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
