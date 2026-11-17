@@ -118,20 +118,6 @@
       src: 'https://cdn.phototourl.com/anon/2026-11-16-54ba6964-186c-40cf-a557-d4d427814c9f.jpg',
       fallback: FALLBACK_PETALS_SVG,
       wish: 'Cảm ơn cô đã kiên nhẫn lắng nghe, đồng hành cùng 45 cá tính khác nhau để dệt nên một tập thể gắn kết và đầy ắp tiếng cười.'
-    },
-    {
-      title: 'Sắc hồng phấn dâng tặng cô',
-      subtitle: 'Kỷ niệm 03 · Tri ân 20/11',
-      src: BOUQUET_SRC,
-      fallback: FALLBACK_BOUQUET_SVG,
-      wish: 'Mỗi cánh hoa hồng phấn là một lời cảm ơn chân thành gửi đến cô. Chúc cô một mùa Hiến chương thật ấm áp, trọn vẹn niềm vui và bình an.'
-    },
-    {
-      title: 'Trang vở và hương hoa sớm mai',
-      subtitle: 'Kỷ niệm 04 · Hành trang trưởng thành',
-      src: SUNLIT_SRC,
-      fallback: FALLBACK_SUNLIT_SVG,
-      wish: 'Dù mai này mỗi người đi một ngả, những bài học từ cô Ngô Thị Linh sẽ mãi là ánh sáng nâng bước chúng em trên mọi nẻo đường.'
     }
   ];
 
@@ -179,6 +165,7 @@
     galleryView: 'swipe',
     creditsPaused: false,
     waitTimer: null,
+    transitionTimer: null,
     audioCtx: null,
     trackIdx: 0,
     isPlaying: false,
@@ -298,6 +285,14 @@
     updateLyricsUI();
   }
 
+  function advanceNextTrack() {
+    if (!state.isPlaying) return;
+    state.trackIdx = (state.trackIdx + 1) % TRACKS.length;
+    state.lyricClock = 0;
+    stopSynth();
+    startMusic();
+  }
+
   function startMusic() {
     var tr = TRACKS[state.trackIdx];
     audioEl.src = state.customUrls[state.trackIdx] || tr.src;
@@ -317,7 +312,13 @@
         if (!state.useFallbackSynth && !audioEl.paused && !isNaN(audioEl.currentTime)) {
           state.lyricClock = audioEl.currentTime;
         } else {
-          state.lyricClock = (state.lyricClock + 0.25) % TRACKS[state.trackIdx].duration;
+          var dur = TRACKS[state.trackIdx].duration;
+          var nextClock = state.lyricClock + 0.25;
+          if (nextClock >= dur) {
+            advanceNextTrack();
+            return;
+          }
+          state.lyricClock = nextClock;
         }
         updateLyricsUI();
       }, 250);
@@ -331,6 +332,10 @@
     stopSynth();
     syncPlayerUI();
   }
+
+  audioEl.addEventListener('ended', function () {
+    advanceNextTrack();
+  });
 
   audioEl.addEventListener('error', function () {
     if (state.isPlaying) {
@@ -389,8 +394,9 @@
   // --- Pure 3D Perspective Particle Heart Renderer ---
   var heartCanvas = document.getElementById('heart-canvas');
   var hCtx = heartCanvas.getContext('2d');
-  var HEART_PALETTE = ['#be185d', '#e11d48', '#f43f5e', '#fb7185', '#fda4af', '#f59e0b'];
-  var heartBuckets = HEART_PALETTE.map(function () { return []; });
+  var HEART_PALETTE_LIGHT = ['#9f1239', '#be123c', '#e11d48', '#db2777', '#c026d3', '#d97706'];
+  var HEART_PALETTE_FINALE = ['#fb7185', '#f43f5e', '#f472b6', '#fda4af', '#fde047', '#ffffff'];
+  var heartBuckets = HEART_PALETTE_LIGHT.map(function () { return []; });
   var heartModeStart = performance.now();
   var heartLastMode = 'ambient';
 
@@ -414,13 +420,13 @@
       var theta = rand() * Math.PI * 2;
       var phi = Math.acos(2 * rand() - 1);
       var rad = 3.2 + rand() * 5.0;
-      var colorIdx = Math.floor(rand() * HEART_PALETTE.length);
+      var colorIdx = Math.floor(rand() * HEART_PALETTE_LIGHT.length);
       heartBuckets[colorIdx].push({
         hx: hx, hy: hy, hz: hz,
         sx: rad * Math.sin(phi) * Math.cos(theta),
         sy: rad * Math.cos(phi) * 0.85,
         sz: rad * Math.sin(phi) * Math.sin(theta),
-        size: 1.5 + rand() * 1.9,
+        size: 1.8 + rand() * 2.1,
         phase: rand() * Math.PI * 2
       });
     }
@@ -443,6 +449,7 @@
     heartCanvas.height = window.innerHeight;
     fireworksCanvas.width = window.innerWidth;
     fireworksCanvas.height = window.innerHeight;
+    if (fwWeatherInitialized) initFinaleWeather();
   }
   window.addEventListener('resize', resizeCanvases);
   resizeCanvases();
@@ -498,15 +505,18 @@
     var rotY = Math.sin(totalSec * 0.38) * 0.34;
     var cosY = Math.cos(rotY);
     var sinY = Math.sin(rotY);
-    var scaleFactor = (mode === 'finale' ? 1.48 : 0.9) * Math.min(w, h) * 0.092;
+    var scaleFactor = (mode === 'finale' ? 1.48 : 0.66) * Math.min(w, h) * 0.092;
     var cx = w * 0.5;
-    var cy = mode === 'finale' ? h * 0.52 : h * 0.56;
-    var radMul = mode === 'finale' ? 1.2 : 1.0;
+    var cy = mode === 'finale' ? h * 0.52 : (state.stage === 'intro' ? h * 0.47 : h * 0.54);
+    var radMul = mode === 'finale' ? 1.22 : 1.05;
+    var palette = mode === 'finale' ? HEART_PALETTE_FINALE : HEART_PALETTE_LIGHT;
 
-    hCtx.globalAlpha = emerge * (0.45 + 0.5 * converge);
-    for (var b = 0; b < HEART_PALETTE.length; b++) {
+    hCtx.globalAlpha = mode === 'finale'
+      ? emerge * (0.78 + 0.22 * converge)
+      : Math.max(0.75, emerge * (0.82 + 0.18 * converge));
+    for (var b = 0; b < palette.length; b++) {
       var bucket = heartBuckets[b];
-      hCtx.fillStyle = HEART_PALETTE[b];
+      hCtx.fillStyle = palette[b];
       hCtx.beginPath();
       for (var i = 0; i < bucket.length; i++) {
         var pt = bucket[i];
@@ -536,29 +546,141 @@
     }
     setTimeout(function () {
       requestAnimationFrame(renderHeart);
-    }, 16);
+    }, 30);
   }
   requestAnimationFrame(renderHeart);
 
-  // --- Fireworks ---
+  // --- Finale Effects: Sparkling Fireworks, Rain, Snow & Twinkle Stars ---
   var fwCtx = fireworksCanvas.getContext('2d');
-  var fwColors = ['#fb7185', '#f43f5e', '#fbcfe8', '#fda4af', '#fde047', '#f9a8d4', '#ffffff'];
+  var fwColors = ['#fb7185', '#f43f5e', '#fbcfe8', '#fda4af', '#fde047', '#fef08a', '#f9a8d4', '#38bdf8', '#ffffff'];
   var fwParticles = [];
   var fwRockets = [];
+  var fwRainDrops = [];
+  var fwRainRipples = [];
+  var fwSnowFlakes = [];
+  var fwGlitters = [];
   var fwLastLaunch = 0;
+  var fwWeatherInitialized = false;
+
+  function initFinaleWeather() {
+    var w = fireworksCanvas.width || window.innerWidth;
+    var h = fireworksCanvas.height || window.innerHeight;
+    var i;
+    fwRainDrops.length = 0;
+    fwRainRipples.length = 0;
+    fwSnowFlakes.length = 0;
+    fwGlitters.length = 0;
+
+    for (i = 0; i < 72; i++) {
+      fwRainDrops.push({
+        x: Math.random() * (w + 120),
+        y: Math.random() * h,
+        len: 14 + Math.random() * 16,
+        vy: 7.5 + Math.random() * 5.2,
+        vx: -1.1 - Math.random() * 0.6,
+        alpha: 0.24 + Math.random() * 0.38,
+        tint: i % 3 === 0 ? 'rgba(224, 242, 254,' : 'rgba(255, 228, 240,'
+      });
+    }
+
+    for (i = 0; i < 64; i++) {
+      fwSnowFlakes.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: 1.4 + Math.random() * 2.8,
+        vy: 0.75 + Math.random() * 1.35,
+        drift: 0.35 + Math.random() * 0.65,
+        phase: Math.random() * Math.PI * 2,
+        alpha: 0.48 + Math.random() * 0.47,
+        isStar: i % 4 === 0
+      });
+    }
+
+    for (i = 0; i < 42; i++) {
+      fwGlitters.push({
+        x: Math.random() * w,
+        y: Math.random() * h * 0.88,
+        size: 2.2 + Math.random() * 3.4,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.035 + Math.random() * 0.045,
+        color: i % 3 === 0 ? '#fde047' : (i % 2 === 0 ? '#fbcfe8' : '#ffffff')
+      });
+    }
+    fwWeatherInitialized = true;
+  }
 
   function spawnFireworkBurst(cx, cy, color) {
-    for (var i = 0; i < 32; i++) {
-      var a = (Math.PI * 2 * i) / 32 + (Math.random() - 0.5) * 0.16;
-      var sp = 1.8 + Math.random() * 4.5;
+    var ringColor = fwColors[Math.floor(Math.random() * fwColors.length)];
+    var count = 38;
+    var i;
+    for (i = 0; i < count; i++) {
+      var a = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.14;
+      var sp = 2.0 + Math.random() * 4.8;
       fwParticles.push({
-        x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-        alpha: 1, decay: 0.011 + Math.random() * 0.01, size: 2.2 + Math.random() * 2.2, color: color
+        x: cx,
+        y: cy,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        alpha: 1,
+        decay: 0.01 + Math.random() * 0.009,
+        size: 2.0 + Math.random() * 2.3,
+        color: i % 5 === 0 ? '#ffffff' : color,
+        twinklePhase: Math.random() * Math.PI * 2,
+        twinkleSpeed: 0.25 + Math.random() * 0.25
+      });
+    }
+    for (i = 0; i < 16; i++) {
+      var ia = (Math.PI * 2 * i) / 16 + 0.1;
+      var isp = 1.1 + Math.random() * 1.9;
+      fwParticles.push({
+        x: cx,
+        y: cy,
+        vx: Math.cos(ia) * isp,
+        vy: Math.sin(ia) * isp,
+        alpha: 1,
+        decay: 0.013 + Math.random() * 0.009,
+        size: 1.6 + Math.random() * 1.6,
+        color: ringColor,
+        twinklePhase: Math.random() * Math.PI * 2,
+        twinkleSpeed: 0.35
       });
     }
   }
 
+  function launchRocket(xPos) {
+    var w = fireworksCanvas.width || window.innerWidth;
+    var h = fireworksCanvas.height || window.innerHeight;
+    fwRockets.push({
+      x: typeof xPos === 'number' ? xPos : w * (0.1 + Math.random() * 0.8),
+      y: h * 0.96,
+      vy: -(7.8 + Math.random() * 3.4),
+      vx: (Math.random() - 0.5) * 1.1,
+      targetY: h * (0.1 + Math.random() * 0.36),
+      color: fwColors[Math.floor(Math.random() * fwColors.length)],
+      trail: []
+    });
+  }
+
   var fwRafId = null;
+  function ensureFinaleEffects() {
+    if (!fwWeatherInitialized) initFinaleWeather();
+    if (!fwRafId) fwRafId = requestAnimationFrame(renderFireworks);
+  }
+
+  function drawFourPointStar(ctx, x, y, r) {
+    ctx.beginPath();
+    ctx.moveTo(x, y - r);
+    ctx.lineTo(x + r * 0.26, y - r * 0.26);
+    ctx.lineTo(x + r, y);
+    ctx.lineTo(x + r * 0.26, y + r * 0.26);
+    ctx.lineTo(x, y + r);
+    ctx.lineTo(x - r * 0.26, y + r * 0.26);
+    ctx.lineTo(x - r, y);
+    ctx.lineTo(x - r * 0.26, y - r * 0.26);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   function renderFireworks(now) {
     if (state.stage !== 'finale') {
       fwRafId = null;
@@ -566,28 +688,119 @@
     }
     var w = fireworksCanvas.width;
     var h = fireworksCanvas.height;
+    if (!fwWeatherInitialized) initFinaleWeather();
+
     fwCtx.clearRect(0, 0, w, h);
 
-    if (now - fwLastLaunch > 600) {
+    // 1. Twinkling sky glitters
+    var gIdx;
+    for (gIdx = 0; gIdx < fwGlitters.length; gIdx++) {
+      var gl = fwGlitters[gIdx];
+      gl.phase += gl.speed;
+      var glow = 0.25 + 0.75 * Math.abs(Math.sin(gl.phase));
+      fwCtx.globalAlpha = glow * 0.85;
+      fwCtx.fillStyle = gl.color;
+      drawFourPointStar(fwCtx, gl.x, gl.y, gl.size * (0.7 + 0.45 * glow));
+    }
+
+    // 2. Falling light rain & ground micro-splashes
+    fwCtx.lineWidth = 1.2;
+    var rdIdx;
+    for (rdIdx = 0; rdIdx < fwRainDrops.length; rdIdx++) {
+      var rd = fwRainDrops[rdIdx];
+      rd.x += rd.vx;
+      rd.y += rd.vy;
+      if (rd.y > h - 10) {
+        if (fwRainRipples.length < 28 && Math.random() < 0.32) {
+          fwRainRipples.push({
+            x: rd.x,
+            y: h - 6 - Math.random() * 14,
+            rx: 2,
+            alpha: 0.45
+          });
+        }
+        rd.y = -rd.len - Math.random() * 40;
+        rd.x = Math.random() * (w + 120);
+      }
+      fwCtx.globalAlpha = 1;
+      fwCtx.strokeStyle = rd.tint + rd.alpha + ')';
+      fwCtx.beginPath();
+      fwCtx.moveTo(rd.x, rd.y);
+      fwCtx.lineTo(rd.x + rd.vx * 1.4, rd.y - rd.len);
+      fwCtx.stroke();
+    }
+
+    var rpIdx;
+    for (rpIdx = fwRainRipples.length - 1; rpIdx >= 0; rpIdx--) {
+      var rp = fwRainRipples[rpIdx];
+      rp.rx += 0.75;
+      rp.alpha -= 0.032;
+      if (rp.alpha <= 0.02) {
+        fwRainRipples.splice(rpIdx, 1);
+        continue;
+      }
+      fwCtx.globalAlpha = rp.alpha;
+      fwCtx.strokeStyle = '#fbcfe8';
+      fwCtx.beginPath();
+      fwCtx.ellipse(rp.x, rp.y, rp.rx, rp.rx * 0.32, 0, 0, Math.PI * 2);
+      fwCtx.stroke();
+    }
+
+    // 3. Soft falling snowflakes
+    var snIdx;
+    for (snIdx = 0; snIdx < fwSnowFlakes.length; snIdx++) {
+      var sn = fwSnowFlakes[snIdx];
+      sn.phase += 0.032;
+      sn.y += sn.vy;
+      sn.x += Math.sin(sn.phase) * sn.drift;
+      if (sn.y > h + 8) {
+        sn.y = -8;
+        sn.x = Math.random() * w;
+      }
+      if (sn.x < -10) sn.x = w + 10;
+      if (sn.x > w + 10) sn.x = -10;
+
+      fwCtx.globalAlpha = sn.alpha;
+      fwCtx.fillStyle = '#ffffff';
+      if (sn.isStar) {
+        drawFourPointStar(fwCtx, sn.x, sn.y, sn.r * 1.55);
+      } else {
+        fwCtx.beginPath();
+        fwCtx.arc(sn.x, sn.y, sn.r, 0, Math.PI * 2);
+        fwCtx.fill();
+      }
+    }
+
+    // 4. Sparkling fireworks rockets & multi-ring bursts
+    if (now - fwLastLaunch > 480) {
       fwLastLaunch = now;
-      fwRockets.push({
-        x: w * (0.12 + Math.random() * 0.76),
-        y: h * 0.94,
-        vy: -(7.2 + Math.random() * 3.2),
-        targetY: h * (0.12 + Math.random() * 0.35),
-        color: fwColors[Math.floor(Math.random() * fwColors.length)]
-      });
+      launchRocket();
+      if (Math.random() < 0.35) launchRocket();
     }
 
     for (var i = fwRockets.length - 1; i >= 0; i--) {
       var r = fwRockets[i];
+      r.trail.push({ x: r.x, y: r.y });
+      if (r.trail.length > 7) r.trail.shift();
+
+      r.x += r.vx;
       r.y += r.vy;
       r.vy *= 0.985;
-      fwCtx.globalAlpha = 0.96;
-      fwCtx.fillStyle = r.color;
+
+      for (var t = 0; t < r.trail.length; t++) {
+        fwCtx.globalAlpha = ((t + 1) / r.trail.length) * 0.55;
+        fwCtx.fillStyle = r.color;
+        fwCtx.beginPath();
+        fwCtx.arc(r.trail[t].x, r.trail[t].y, 1.8, 0, Math.PI * 2);
+        fwCtx.fill();
+      }
+
+      fwCtx.globalAlpha = 0.98;
+      fwCtx.fillStyle = '#ffffff';
       fwCtx.beginPath();
-      fwCtx.arc(r.x, r.y, 3, 0, Math.PI * 2);
+      fwCtx.arc(r.x, r.y, 3.1, 0, Math.PI * 2);
       fwCtx.fill();
+
       if (r.y <= r.targetY || r.vy > -1.2) {
         spawnFireworkBurst(r.x, r.y, r.color);
         fwRockets.splice(i, 1);
@@ -598,56 +811,149 @@
       var p = fwParticles[j];
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.042;
-      p.vx *= 0.985;
+      p.vy += 0.04;
+      p.vx *= 0.984;
       p.alpha -= p.decay;
+      p.twinklePhase += p.twinkleSpeed;
       if (p.alpha <= 0.02) {
         fwParticles.splice(j, 1);
         continue;
       }
-      fwCtx.globalAlpha = p.alpha;
+      var flicker = 0.65 + 0.35 * Math.sin(p.twinklePhase);
+      fwCtx.globalAlpha = p.alpha * flicker;
       fwCtx.fillStyle = p.color;
-      fwCtx.beginPath();
-      fwCtx.arc(p.x, p.y, p.size * 1.25, 0, Math.PI * 2);
-      fwCtx.fill();
+      if (p.size > 3.2 && flicker > 0.85) {
+        drawFourPointStar(fwCtx, p.x, p.y, p.size * 1.45);
+      } else {
+        fwCtx.beginPath();
+        fwCtx.arc(p.x, p.y, p.size * 1.15, 0, Math.PI * 2);
+        fwCtx.fill();
+      }
     }
+
+    fwCtx.globalAlpha = 1;
     setTimeout(function () {
       if (state.stage === 'finale') {
         fwRafId = requestAnimationFrame(renderFireworks);
       } else {
         fwRafId = null;
       }
-    }, 16);
+    }, 26);
   }
 
   // --- Stage Rendering ---
   function clearWaitTimer() {
     if (state.waitTimer) {
       clearInterval(state.waitTimer);
+      clearTimeout(state.waitTimer);
       state.waitTimer = null;
     }
-  }
-
-  function setStage(nextStage) {
-    clearWaitTimer();
-    if (nextStage === 'letter') {
-      playChime([523.25, 659.25, 783.99, 1046.5], 0.08, 0.045);
-      if (!state.isPlaying && !state.userToggledAudio) startMusic();
-    } else if (nextStage === 'finale') {
-      playChime([523.25, 659.25, 783.99, 987.77, 1046.5, 1318.5], 0.075, 0.05);
-      fwParticles.length = 0;
-      spawnFireworkBurst(window.innerWidth * 0.22, window.innerHeight * 0.25, '#fb7185');
-      spawnFireworkBurst(window.innerWidth * 0.78, window.innerHeight * 0.22, '#fde047');
-      spawnFireworkBurst(window.innerWidth * 0.5, window.innerHeight * 0.18, '#fbcfe8');
-      if (!fwRafId) fwRafId = requestAnimationFrame(renderFireworks);
-    } else {
-      playChime([587.33, 739.99, 880.0], 0.07, 0.035);
+    if (state.waitRaf) {
+      cancelAnimationFrame(state.waitRaf);
+      state.waitRaf = null;
     }
-    state.stage = nextStage;
-    renderStage();
   }
 
-  function renderStage() {
+  function startSmoothProgress(footer, durationMs, labelText, btnId, btnText, nextStage) {
+    footer.innerHTML =
+      '<p class="wait-text">' + labelText + ' <strong class="wait-pct">1%</strong></p>' +
+      '<div class="progress-track"><div class="progress-fill" style="width:1%"></div></div>';
+    var pctEl = footer.querySelector('.wait-pct');
+    var fillEl = footer.querySelector('.progress-fill');
+    var startTime = performance.now();
+
+    function step(now) {
+      var elapsed = Math.max(0, now - startTime);
+      var ratio = Math.min(1, elapsed / durationMs);
+      var pct = Math.min(100, Math.max(1, Math.round(1 + ratio * 99)));
+      if (pctEl) pctEl.textContent = pct + '%';
+      if (fillEl) fillEl.style.width = pct + '%';
+
+      if (ratio < 1) {
+        state.waitRaf = requestAnimationFrame(step);
+      } else {
+        state.waitRaf = null;
+        state.waitTimer = setTimeout(function () {
+          state.waitTimer = null;
+          footer.innerHTML = '<button type="button" id="' + btnId + '" class="btn-primary btn-reveal">' + btnText + '</button>';
+          document.getElementById(btnId).addEventListener('click', function () {
+            setStage(nextStage, this);
+          });
+        }, 180);
+      }
+    }
+    state.waitRaf = requestAnimationFrame(step);
+  }
+
+  function spawnButtonBurst(el) {
+    if (!el || !el.getBoundingClientRect) return;
+    var rect = el.getBoundingClientRect();
+    var cx = rect.left + rect.width * 0.5;
+    var cy = rect.top + rect.height * 0.5;
+    var glyphs = ['♥', '🌸', '✨', '✿', '♡', '🌷'];
+    var colors = ['#e11d48', '#f43f5e', '#ec4899', '#fb7185', '#f59e0b'];
+    for (var i = 0; i < 12; i++) {
+      var angle = (Math.PI * 2 * i) / 12 + (Math.random() - 0.5) * 0.35;
+      var dist = 42 + Math.random() * 58;
+      var dot = document.createElement('span');
+      dot.className = 'btn-burst-dot';
+      dot.textContent = glyphs[i % glyphs.length];
+      dot.style.left = cx + 'px';
+      dot.style.top = cy + 'px';
+      dot.style.color = colors[i % colors.length];
+      dot.style.setProperty('--bx', Math.round(Math.cos(angle) * dist) + 'px');
+      dot.style.setProperty('--by', Math.round(Math.sin(angle) * dist - 14) + 'px');
+      dot.style.setProperty('--br', Math.round((Math.random() - 0.5) * 90) + 'deg');
+      document.body.appendChild(dot);
+      setTimeout((function (node) {
+        return function () {
+          if (node.parentNode) node.parentNode.removeChild(node);
+        };
+      })(dot), 720);
+    }
+  }
+
+  function setStage(nextStage, triggerEl, skipFx) {
+    if (state.transitionTimer) {
+      clearTimeout(state.transitionTimer);
+      state.transitionTimer = null;
+    }
+    clearWaitTimer();
+    if (triggerEl && !skipFx) spawnButtonBurst(triggerEl);
+
+    if (!skipFx) {
+      if (nextStage === 'letter') {
+        playChime([523.25, 659.25, 783.99, 1046.5], 0.08, 0.045);
+        if (!state.isPlaying && !state.userToggledAudio) startMusic();
+      } else if (nextStage === 'finale') {
+        playChime([523.25, 659.25, 783.99, 987.77, 1046.5, 1318.5], 0.075, 0.05);
+        fwParticles.length = 0;
+        fwRockets.length = 0;
+        spawnFireworkBurst(window.innerWidth * 0.22, window.innerHeight * 0.25, '#fb7185');
+        spawnFireworkBurst(window.innerWidth * 0.78, window.innerHeight * 0.22, '#fde047');
+        spawnFireworkBurst(window.innerWidth * 0.5, window.innerHeight * 0.18, '#fbcfe8');
+      } else {
+        playChime([587.33, 739.99, 880.0], 0.07, 0.035);
+      }
+    }
+
+    if (!stageRoot.firstElementChild || state.stage === nextStage) {
+      state.stage = nextStage;
+      renderStage(true);
+      return;
+    }
+
+    stageRoot.classList.remove('stage-entering');
+    stageRoot.classList.add('stage-leaving');
+    state.transitionTimer = setTimeout(function () {
+      state.transitionTimer = null;
+      state.stage = nextStage;
+      stageRoot.classList.remove('stage-leaving');
+      renderStage(true);
+    }, 260);
+  }
+
+  function renderStage(animateEnter) {
     var isFinale = state.stage === 'finale';
     document.body.dataset.stage = state.stage;
     shell.classList.toggle('finale-mode', isFinale);
@@ -662,6 +968,12 @@
       el.classList.toggle('active', el.getAttribute('data-nav') === state.stage);
     });
 
+    if (animateEnter) {
+      stageRoot.classList.remove('stage-entering');
+      void stageRoot.offsetWidth;
+      stageRoot.classList.add('stage-entering');
+    }
+
     if (state.stage === 'intro') renderIntro();
     else if (state.stage === 'letter') renderLetter();
     else if (state.stage === 'bouquet') renderBouquet();
@@ -673,20 +985,52 @@
   function renderIntro() {
     stageRoot.innerHTML =
       '<section class="intro-wrap">' +
-        '<div>' +
+        '<div class="intro-hero">' +
           '<p class="kicker">Ngày Nhà Giáo Việt Nam 20 · 11</p>' +
           '<h1 class="hero-title">Gửi trọn yêu thương đến Cô ' + TEACHER_NAME + '</h1>' +
-          '<p class="hero-sub">Những hạt ánh sáng đang kết thành nhịp đập trái tim từ tấm lòng của 45 học trò. Mời cô chạm vào nút bên dưới để mở lá thư tri ân.</p>' +
+          '<p class="hero-sub">Có một lá thư tri ân từ tấm lòng của 45 học trò đang chờ cô mở ra. Mời cô chạm vào phong thư bên dưới.</p>' +
         '</div>' +
         '<div class="heart-spacer" aria-hidden="true"></div>' +
-        '<div class="open-btn-wrap">' +
-          '<span class="open-btn-halo" aria-hidden="true"></span>' +
-          '<button type="button" id="open-letter-btn" class="btn-primary">✉ Mở lá thư gửi cô ♥</button>' +
+        '<div class="envelope-wrap">' +
+          '<div class="envelope-card" id="intro-envelope">' +
+            '<div class="envelope-back" aria-hidden="true"></div>' +
+            '<div class="envelope-peek-letter" aria-hidden="true">' +
+              '<span class="peek-kicker">Kính gửi Cô ' + TEACHER_NAME + '</span>' +
+              '<strong class="peek-title">Lời chúc tri ân 20/11</strong>' +
+              '<span class="peek-line">Từ tập thể 45 học sinh yêu quý...</span>' +
+            '</div>' +
+            '<div class="envelope-front" aria-hidden="true"></div>' +
+            '<div class="envelope-flap" aria-hidden="true">' +
+              '<span class="envelope-wax">♥</span>' +
+            '</div>' +
+            '<div class="envelope-cta">' +
+              '<div class="open-btn-wrap">' +
+                '<span class="open-btn-halo" aria-hidden="true"></span>' +
+                '<button type="button" id="open-letter-btn" class="btn-primary">✉ Mở lá thư</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<p class="envelope-caption">Lá thư tri ân gửi Cô ' + TEACHER_NAME + ' · 20/11</p>' +
         '</div>' +
       '</section>';
-    document.getElementById('open-letter-btn').addEventListener('click', function () {
-      setStage('letter');
-    });
+
+    var env = document.getElementById('intro-envelope');
+    var openBtn = document.getElementById('open-letter-btn');
+    function openEnvelope(e) {
+      if (e) e.stopPropagation();
+      if (env.classList.contains('is-opening')) return;
+      env.classList.add('is-opening');
+      openBtn.disabled = true;
+      spawnButtonBurst(openBtn);
+      playChime([523.25, 659.25, 783.99, 1046.5], 0.08, 0.045);
+      if (!state.isPlaying && !state.userToggledAudio) startMusic();
+      state.transitionTimer = setTimeout(function () {
+        state.transitionTimer = null;
+        setStage('letter', null, true);
+      }, 520);
+    }
+    openBtn.addEventListener('click', openEnvelope);
+    env.addEventListener('click', openEnvelope);
   }
 
   function renderLetter() {
@@ -705,27 +1049,14 @@
         '<div id="letter-footer" class="wait-footer"></div>' +
       '</article>';
 
-    var left = 5;
-    var footer = document.getElementById('letter-footer');
-    function drawFooter() {
-      if (left <= 0) {
-        footer.innerHTML = '<button type="button" id="letter-next-btn" class="btn-primary">Tiếp tục →</button>';
-        document.getElementById('letter-next-btn').addEventListener('click', function () {
-          setStage('bouquet');
-        });
-      } else {
-        var pct = ((5 - left) / 5) * 100;
-        footer.innerHTML =
-          '<p class="wait-text">Nút “Tiếp tục” sẽ hiện sau ' + left + ' giây...</p>' +
-          '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>';
-      }
-    }
-    drawFooter();
-    state.waitTimer = setInterval(function () {
-      left -= 1;
-      if (left <= 0) clearWaitTimer();
-      drawFooter();
-    }, 1000);
+    startSmoothProgress(
+      document.getElementById('letter-footer'),
+      5000,
+      'Đang mở phần tiếp theo...',
+      'letter-next-btn',
+      'Tiếp tục →',
+      'bouquet'
+    );
   }
 
   function renderBouquet() {
@@ -752,27 +1083,14 @@
       img.src = FALLBACK_BOUQUET_SVG;
     });
 
-    var left = 3;
-    var footer = document.getElementById('bouquet-footer');
-    function drawFooter() {
-      if (left <= 0) {
-        footer.innerHTML = '<button type="button" id="bouquet-next-btn" class="btn-primary">Tiếp theo →</button>';
-        document.getElementById('bouquet-next-btn').addEventListener('click', function () {
-          setStage('wishes');
-        });
-      } else {
-        var pct = ((3 - left) / 3) * 100;
-        footer.innerHTML =
-          '<p class="wait-text">“Tiếp theo” sẽ xuất hiện sau ' + left + ' giây...</p>' +
-          '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>';
-      }
-    }
-    drawFooter();
-    state.waitTimer = setInterval(function () {
-      left -= 1;
-      if (left <= 0) clearWaitTimer();
-      drawFooter();
-    }, 1000);
+    startSmoothProgress(
+      document.getElementById('bouquet-footer'),
+      3000,
+      'Đang mở phần tiếp theo...',
+      'bouquet-next-btn',
+      'Tiếp theo →',
+      'wishes'
+    );
   }
 
   function renderWishes() {
@@ -822,7 +1140,7 @@
       renderWishes();
     });
     document.getElementById('to-gallery-btn').addEventListener('click', function () {
-      setStage('gallery');
+      setStage('gallery', this);
     });
   }
 
@@ -891,7 +1209,7 @@
       renderGallery();
     });
     document.getElementById('finish-btn').addEventListener('click', function () {
-      setStage('finale');
+      setStage('finale', this);
     });
 
     if (state.galleryView === 'swipe') {
@@ -981,16 +1299,27 @@
         '</div>' +
         '<div class="finale-actions">' +
           '<button type="button" id="toggle-scroll-btn" class="btn-dark-pill">' + (state.creditsPaused ? '▶ Tiếp tục trôi tên' : '❚❚ Tạm dừng trôi tên') + '</button>' +
+          '<button type="button" id="burst-fw-btn" class="btn-dark-pill">🎆 Bắn pháo hoa</button>' +
           '<button type="button" id="restart-btn" class="btn-primary" style="padding:0.6rem 1.35rem;font-size:0.82rem;">↺ Xem lại từ đầu</button>' +
         '</div>' +
       '</div>';
 
+    ensureFinaleEffects();
+
+    document.getElementById('burst-fw-btn').addEventListener('click', function () {
+      spawnButtonBurst(this);
+      playChime([659.25, 783.99, 1046.5, 1318.5], 0.06, 0.04);
+      launchRocket(window.innerWidth * 0.22);
+      launchRocket(window.innerWidth * 0.5);
+      launchRocket(window.innerWidth * 0.78);
+      spawnFireworkBurst(window.innerWidth * (0.25 + Math.random() * 0.5), window.innerHeight * (0.16 + Math.random() * 0.2), '#fde047');
+    });
     document.getElementById('toggle-scroll-btn').addEventListener('click', function () {
       state.creditsPaused = !state.creditsPaused;
       renderFinale();
     });
     document.getElementById('restart-btn').addEventListener('click', function () {
-      setStage('intro');
+      setStage('intro', this);
     });
   }
 
@@ -1004,9 +1333,9 @@
     });
   });
   topActionBtn.addEventListener('click', function () {
-    setStage(state.stage === 'finale' ? 'intro' : 'finale');
+    setStage(state.stage === 'finale' ? 'intro' : 'finale', this);
   });
 
   syncPlayerUI();
-  renderStage();
+  renderStage(true);
 })();
