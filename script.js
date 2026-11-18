@@ -178,6 +178,8 @@
     waitRaf: null,
     curtainTimer1: null,
     curtainTimer2: null,
+    curtainRaf: null,
+    shakeBurstTimer: null,
     floralTubeTimer: null,
     cannonAutoTimer: null
   };
@@ -186,6 +188,7 @@
   var stageRoot = document.getElementById('stage-root');
   var petalsLayer = document.getElementById('petals-layer');
   var ambientGlitterCanvas = document.getElementById('ambient-glitter-canvas');
+  var spaceWishesCanvas = document.getElementById('space-wishes-canvas');
   var fireworksCanvas = document.getElementById('fireworks-canvas');
   var finaleFloralCanvas = document.getElementById('finale-floral-canvas');
   var topActionBtn = document.getElementById('top-action-btn');
@@ -458,6 +461,10 @@
       ambientGlitterCanvas.width = window.innerWidth;
       ambientGlitterCanvas.height = window.innerHeight;
     }
+    if (spaceWishesCanvas) {
+      spaceWishesCanvas.width = window.innerWidth;
+      spaceWishesCanvas.height = window.innerHeight;
+    }
     fireworksCanvas.width = window.innerWidth;
     fireworksCanvas.height = window.innerHeight;
     if (finaleFloralCanvas) {
@@ -465,6 +472,7 @@
       finaleFloralCanvas.height = window.innerHeight;
     }
     if (typeof agInitialized !== 'undefined' && agInitialized) initAmbientGlitter();
+    if (typeof swInitialized !== 'undefined' && swInitialized) initSpaceWishes();
     if (typeof fwWeatherInitialized !== 'undefined' && fwWeatherInitialized) initFinaleWeather();
   }
   window.addEventListener('resize', resizeCanvases);
@@ -630,7 +638,360 @@
     }, 30);
   }
 
+  // --- Space Wishes & 3D Hearts Galaxy (Trang 5 before Finale) ---
+  var SPACE_WISH_PHRASES = [
+    'Kính chúc Cô Ngô Thị Linh 20/11 ngập tràn hạnh phúc ♥',
+    'Cảm ơn Cô vì những bài giảng thắp sáng ước mơ',
+    'Tập thể 45 học trò mãi yêu quý và biết ơn Cô ♥',
+    'Chúc Cô luôn khỏe mạnh, bình an và rạng rỡ nụ cười',
+    'Mỗi nét phấn của Cô là một hạt mầm yêu thương',
+    'Cô là ngọn đèn soi sáng bước đường chúng em đi',
+    '20/11 trọn vẹn niềm vui và tự hào bên mái trường',
+    'Biết ơn Cô đã kiên nhẫn dìu dắt chúng em từng ngày',
+    'Chúc Cô mãi giữ ngọn lửa đam mê trồng người ♥',
+    'Dù đi muôn phương, 45 trái tim luôn hướng về Cô',
+    'Tình cô trò mãi là ký ức đẹp nhất tuổi học trò',
+    'Kính chúc Cô vạn sự như ý, công tác thật tốt ♥',
+    'Cảm ơn Cô đã lắng nghe, tin tưởng và nâng đỡ chúng em',
+    'Bụi phấn rơi trên tóc Cô — Công ơn chẳng thể nào quên',
+    'Chúc Cô Ngô Thị Linh luôn trẻ trung và an yên ♥',
+    '45 học trò xin gửi trọn ngàn lời tri ân chân thành nhất',
+    'Một đời người lái đò thầm lặng · Vạn trái tim ghi sâu ♥',
+    'Chúc mừng Ngày Nhà Giáo Việt Nam 20 · 11 ♥'
+  ];
+  var swCtx = spaceWishesCanvas ? spaceWishesCanvas.getContext('2d') : null;
+  var swStars = [];
+  var swShootingStars = [];
+  var swHearts = [];
+  var swTexts = [];
+  var swBursts = [];
+  var swInitialized = false;
+  var swRafId = null;
+  var swYaw = 0;
+  var swPitch = 0;
+  var swTargetYaw = 0;
+  var swTargetPitch = 0;
+  var swLastShoot = 0;
+
+  function drawCanvasHeart(ctx, x, y, size, fillColor, glowColor) {
+    ctx.save();
+    ctx.translate(x, y);
+    if (glowColor) {
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = Math.max(8, size * 0.9);
+    }
+    ctx.fillStyle = fillColor;
+    ctx.beginPath();
+    ctx.moveTo(0, size * 0.32);
+    ctx.bezierCurveTo(size * 0.08, -size * 0.16, size * 0.92, -size * 0.24, size * 0.92, size * 0.34);
+    ctx.bezierCurveTo(size * 0.92, size * 0.78, size * 0.38, size * 1.04, 0, size * 1.28);
+    ctx.bezierCurveTo(-size * 0.38, size * 1.04, -size * 0.92, size * 0.78, -size * 0.92, size * 0.34);
+    ctx.bezierCurveTo(-size * 0.92, -size * 0.24, -size * 0.08, -size * 0.16, 0, size * 0.32);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function initSpaceWishes() {
+    if (!spaceWishesCanvas) return;
+    var w = spaceWishesCanvas.width || window.innerWidth;
+    var h = spaceWishesCanvas.height || window.innerHeight;
+    var spreadX = Math.max(920, w * 1.38);
+    var spreadY = Math.max(660, h * 1.32);
+    var i;
+    swStars.length = 0;
+    swShootingStars.length = 0;
+    swHearts.length = 0;
+    swTexts.length = 0;
+    swBursts.length = 0;
+
+    var starColors = ['#ffffff', '#ffe4e6', '#fde047', '#fbcfe8'];
+    for (i = 0; i < 180; i++) {
+      swStars.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: i % 6 === 0 ? (1.4 + Math.random() * 1.4) : (0.55 + Math.random() * 1.15),
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.02 + Math.random() * 0.045,
+        color: starColors[i % starColors.length]
+      });
+    }
+
+    var heartPalette = ['#fb7185', '#f472b6', '#fda4af', '#f9a8d4', '#ff7aa2', '#f43f5e'];
+    for (i = 0; i < 86; i++) {
+      swHearts.push({
+        x: (Math.random() - 0.5) * spreadX * 1.9,
+        y: (Math.random() - 0.5) * spreadY * 1.9,
+        z: 130 + Math.random() * 1270,
+        speed: 2.2 + Math.random() * 2.8,
+        size: 12 + Math.random() * 19,
+        phase: Math.random() * Math.PI * 2,
+        color: heartPalette[i % heartPalette.length]
+      });
+    }
+
+    var textColors = ['#fff1f2', '#ffe4e6', '#fbcfe8', '#fecdd3', '#fef3c7'];
+    for (i = 0; i < 34; i++) {
+      swTexts.push({
+        text: SPACE_WISH_PHRASES[i % SPACE_WISH_PHRASES.length],
+        x: (Math.random() - 0.5) * spreadX * 1.7,
+        y: (Math.random() - 0.5) * spreadY * 1.7,
+        z: 180 + (i / 34) * 1220 + Math.random() * 80,
+        speed: 2.0 + Math.random() * 2.2,
+        baseFont: 15 + (i % 4) * 2.5,
+        phase: Math.random() * Math.PI * 2,
+        color: textColors[i % textColors.length]
+      });
+    }
+
+    swLastShoot = performance.now() - 2600;
+    swInitialized = true;
+  }
+
+  function spawnSpaceBurst(clientX, clientY, extraWish) {
+    if (!spaceWishesCanvas) return;
+    var rect = spaceWishesCanvas.getBoundingClientRect();
+    var x = typeof clientX === 'number' ? clientX - rect.left : (spaceWishesCanvas.width * 0.5);
+    var y = typeof clientY === 'number' ? clientY - rect.top : (spaceWishesCanvas.height * 0.55);
+    var heartPalette = ['#fb7185', '#f472b6', '#fda4af', '#fde047', '#ffffff'];
+    for (var i = 0; i < 14; i++) {
+      var ang = (Math.PI * 2 * i) / 14 + (Math.random() - 0.5) * 0.35;
+      var spd = 1.6 + Math.random() * 3.8;
+      swBursts.push({
+        x: x,
+        y: y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 1.2,
+        size: 7 + Math.random() * 9,
+        life: 1,
+        decay: 0.015 + Math.random() * 0.012,
+        color: heartPalette[i % heartPalette.length]
+      });
+    }
+    if (extraWish) {
+      swTexts.push({
+        text: SPACE_WISH_PHRASES[Math.floor(Math.random() * SPACE_WISH_PHRASES.length)],
+        x: (x - spaceWishesCanvas.width * 0.5) * 1.35,
+        y: (y - spaceWishesCanvas.height * 0.5) * 1.35,
+        z: 980,
+        speed: 2.8,
+        baseFont: 21,
+        phase: Math.random() * Math.PI * 2,
+        color: '#fff1f2'
+      });
+      if (swTexts.length > 44) swTexts.shift();
+    }
+  }
+
+  function startSpaceWishesLoop() {
+    if (!swCtx || !spaceWishesCanvas) return;
+    if (!swInitialized) initSpaceWishes();
+    if (!swRafId) swRafId = requestAnimationFrame(renderSpaceWishesCanvas);
+  }
+
+  function projectSpacePoint(item, w, h, fov, yaw, pitch, driftX, driftY) {
+    var x = item.x + driftX;
+    var y = item.y + driftY;
+    var z = item.z;
+
+    var cosY = Math.cos(yaw);
+    var sinY = Math.sin(yaw);
+    var rx = x * cosY - z * sinY * 0.28;
+    var rz = z + x * sinY * 0.14;
+
+    var cosP = Math.cos(pitch);
+    var sinP = Math.sin(pitch);
+    var ry = y * cosP - rz * sinP * 0.22;
+
+    var depth = Math.max(95, rz);
+    var scale = fov / (fov + depth);
+    return {
+      sx: w * 0.5 + rx * scale * 1.55,
+      sy: h * 0.5 + ry * scale * 1.55,
+      scale: scale,
+      depth: depth
+    };
+  }
+
+  function renderSpaceWishesCanvas(now) {
+    if (!swCtx || !spaceWishesCanvas || state.stage !== 'space') {
+      if (swCtx && spaceWishesCanvas) {
+        swCtx.clearRect(0, 0, spaceWishesCanvas.width, spaceWishesCanvas.height);
+      }
+      swRafId = null;
+      return;
+    }
+
+    var w = spaceWishesCanvas.width;
+    var h = spaceWishesCanvas.height;
+    var totalSec = now * 0.001;
+    var fov = 520;
+    var zMax = 1400;
+    var spreadX = Math.max(920, w * 1.38);
+    var spreadY = Math.max(660, h * 1.32);
+
+    swYaw += (swTargetYaw + Math.sin(totalSec * 0.25) * 0.06 - swYaw) * 0.08;
+    swPitch += (swTargetPitch + Math.cos(totalSec * 0.21) * 0.045 - swPitch) * 0.08;
+
+    swCtx.clearRect(0, 0, w, h);
+
+    // Subtle cosmic nebula glow in background
+    var neb = swCtx.createRadialGradient(w * 0.5, h * 0.48, 20, w * 0.5, h * 0.48, Math.max(w, h) * 0.62);
+    neb.addColorStop(0, 'rgba(136, 19, 55, 0.22)');
+    neb.addColorStop(0.55, 'rgba(76, 5, 25, 0.12)');
+    neb.addColorStop(1, 'rgba(7, 0, 4, 0)');
+    swCtx.fillStyle = neb;
+    swCtx.fillRect(0, 0, w, h);
+
+    // 1. Twinkling stars
+    for (var s = 0; s < swStars.length; s++) {
+      var st = swStars[s];
+      st.phase += st.speed;
+      var starAlpha = 0.22 + 0.78 * Math.pow(0.5 + 0.5 * Math.sin(st.phase), 2);
+      swCtx.globalAlpha = starAlpha;
+      swCtx.fillStyle = st.color;
+      swCtx.beginPath();
+      swCtx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+      swCtx.fill();
+    }
+
+    // 2. Occasional diagonal shooting star streak across dark cosmos
+    if (now - swLastShoot > 3200) {
+      swLastShoot = now;
+      swShootingStars.push({
+        x: w * (0.2 + Math.random() * 0.5),
+        y: h * (0.12 + Math.random() * 0.35),
+        vx: 11 + Math.random() * 5,
+        vy: 5.5 + Math.random() * 3.5,
+        len: 130 + Math.random() * 90,
+        life: 1
+      });
+    }
+    for (var ss = swShootingStars.length - 1; ss >= 0; ss--) {
+      var sh = swShootingStars[ss];
+      sh.x += sh.vx;
+      sh.y += sh.vy;
+      sh.life -= 0.025;
+      if (sh.life <= 0 || sh.x > w + 200 || sh.y > h + 200) {
+        swShootingStars.splice(ss, 1);
+        continue;
+      }
+      var mag = Math.hypot(sh.vx, sh.vy) || 1;
+      var tx = sh.x - (sh.vx / mag) * sh.len;
+      var ty = sh.y - (sh.vy / mag) * sh.len;
+      var grad = swCtx.createLinearGradient(sh.x, sh.y, tx, ty);
+      grad.addColorStop(0, 'rgba(255, 241, 242, ' + Math.min(1, sh.life * 1.1).toFixed(2) + ')');
+      grad.addColorStop(0.35, 'rgba(253, 164, 175, ' + (sh.life * 0.65).toFixed(2) + ')');
+      grad.addColorStop(1, 'rgba(253, 164, 175, 0)');
+      swCtx.globalAlpha = 1;
+      swCtx.strokeStyle = grad;
+      swCtx.lineWidth = 1.8;
+      swCtx.beginPath();
+      swCtx.moveTo(sh.x, sh.y);
+      swCtx.lineTo(tx, ty);
+      swCtx.stroke();
+    }
+
+    // 3. Collect 3D hearts & wishes, move along Z, and depth-sort (far -> near)
+    var drawItems = [];
+    var i;
+    for (i = 0; i < swHearts.length; i++) {
+      var hr = swHearts[i];
+      hr.z -= hr.speed;
+      if (hr.z < 40) {
+        hr.z = zMax;
+        hr.x = (Math.random() - 0.5) * spreadX * 1.85;
+        hr.y = (Math.random() - 0.5) * spreadY * 1.85;
+      }
+      var hp = projectSpacePoint(
+        hr, w, h, fov, swYaw, swPitch,
+        Math.sin(totalSec * 0.9 + hr.phase) * 14,
+        Math.cos(totalSec * 0.75 + hr.phase) * 12
+      );
+      if (hp.sx < -120 || hp.sx > w + 120 || hp.sy < -120 || hp.sy > h + 120) continue;
+      drawItems.push({ kind: 'heart', item: hr, p: hp });
+    }
+
+    for (i = 0; i < swTexts.length; i++) {
+      var txObj = swTexts[i];
+      txObj.z -= txObj.speed;
+      if (txObj.z < 55) {
+        txObj.z = zMax;
+        txObj.x = (Math.random() - 0.5) * spreadX * 1.7;
+        txObj.y = (Math.random() - 0.5) * spreadY * 1.7;
+      }
+      var tp = projectSpacePoint(
+        txObj, w, h, fov, swYaw, swPitch,
+        Math.sin(totalSec * 0.6 + txObj.phase) * 10,
+        Math.cos(totalSec * 0.5 + txObj.phase) * 8
+      );
+      if (tp.sx < -360 || tp.sx > w + 360 || tp.sy < -80 || tp.sy > h + 80) continue;
+      drawItems.push({ kind: 'text', item: txObj, p: tp });
+    }
+
+    drawItems.sort(function (a, b) {
+      return b.p.depth - a.p.depth;
+    });
+
+    swCtx.textAlign = 'center';
+    swCtx.textBaseline = 'middle';
+
+    for (i = 0; i < drawItems.length; i++) {
+      var node = drawItems[i];
+      var z = node.item.z;
+      var fadeIn = Math.min(1, (zMax - z) / 260);
+      var fadeOut = Math.min(1, Math.max(0, (z - 55) / 140));
+      var alpha = Math.max(0.05, Math.min(0.98, fadeIn * fadeOut));
+      swCtx.globalAlpha = alpha;
+
+      if (node.kind === 'heart') {
+        var hSize = Math.max(4, node.item.size * node.p.scale * 1.55);
+        drawCanvasHeart(swCtx, node.p.sx, node.p.sy, hSize, node.item.color, node.item.color);
+      } else {
+        var fSize = Math.max(10, Math.min(34, node.item.baseFont * node.p.scale * 1.85));
+        swCtx.save();
+        swCtx.font = '600 ' + fSize.toFixed(1) + 'px "Playfair Display", Georgia, serif';
+        swCtx.shadowColor = 'rgba(251, 113, 133, 0.85)';
+        swCtx.shadowBlur = Math.max(6, fSize * 0.55);
+        swCtx.fillStyle = node.item.color;
+        swCtx.fillText(node.item.text, node.p.sx, node.p.sy);
+        swCtx.restore();
+      }
+    }
+
+    // 4. Interactive tap bursts
+    for (var b = swBursts.length - 1; b >= 0; b--) {
+      var bt = swBursts[b];
+      bt.x += bt.vx;
+      bt.y += bt.vy;
+      bt.vy += 0.04;
+      bt.life -= bt.decay;
+      if (bt.life <= 0) {
+        swBursts.splice(b, 1);
+        continue;
+      }
+      swCtx.globalAlpha = bt.life;
+      drawCanvasHeart(swCtx, bt.x, bt.y, bt.size * (0.7 + 0.3 * bt.life), bt.color, bt.color);
+    }
+
+    swCtx.globalAlpha = 1;
+    setTimeout(function () {
+      if (state.stage === 'space') {
+        swRafId = requestAnimationFrame(renderSpaceWishesCanvas);
+      } else {
+        swRafId = null;
+      }
+    }, 28);
+  }
+
   function renderHeart(now) {
+    if (state.stage === 'space') {
+      hCtx.clearRect(0, 0, heartCanvas.width, heartCanvas.height);
+      setTimeout(function () {
+        requestAnimationFrame(renderHeart);
+      }, 90);
+      return;
+    }
     var mode = state.stage === 'finale' ? 'finale' : 'ambient';
     if (mode !== heartLastMode) {
       heartLastMode = mode;
@@ -1054,6 +1415,14 @@
       clearTimeout(state.curtainTimer2);
       state.curtainTimer2 = null;
     }
+    if (state.curtainRaf) {
+      cancelAnimationFrame(state.curtainRaf);
+      state.curtainRaf = null;
+    }
+    if (state.shakeBurstTimer) {
+      clearInterval(state.shakeBurstTimer);
+      state.shakeBurstTimer = null;
+    }
     var oldCurtain = document.getElementById('flower-curtain');
     if (oldCurtain && oldCurtain.parentNode) {
       oldCurtain.parentNode.removeChild(oldCurtain);
@@ -1282,19 +1651,132 @@
     }
   }
 
-  function makeFlowerSvg(petalColor, centerColor) {
-    return (
-      '<svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">' +
-        '<g fill="' + petalColor + '">' +
-          '<ellipse cx="32" cy="14" rx="10" ry="13"/>' +
-          '<ellipse cx="49" cy="26" rx="10" ry="13" transform="rotate(72 49 26)"/>' +
-          '<ellipse cx="43" cy="46" rx="10" ry="13" transform="rotate(144 43 46)"/>' +
-          '<ellipse cx="21" cy="46" rx="10" ry="13" transform="rotate(216 21 46)"/>' +
-          '<ellipse cx="15" cy="26" rx="10" ry="13" transform="rotate(288 15 26)"/>' +
-        '</g>' +
-        '<circle cx="32" cy="32" r="8" fill="' + centerColor + '"/>' +
-      '</svg>'
-    );
+  function buildBotanicalStamp(kind) {
+    var size = 140;
+    var c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    var g = c.getContext('2d');
+    var cx = size * 0.5;
+    var cy = size * 0.5;
+    var i, a, r;
+
+    function drawPetal(angle, dist, rx, ry, col1, col2) {
+      g.save();
+      g.translate(cx, cy);
+      g.rotate(angle);
+      var grad = g.createRadialGradient(0, -dist * 0.55, ry * 0.15, 0, -dist, ry * 1.15);
+      grad.addColorStop(0, col2);
+      grad.addColorStop(1, col1);
+      g.fillStyle = grad;
+      g.beginPath();
+      g.ellipse(0, -dist, rx, ry, 0, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+
+    if (kind === 'rosePeach' || kind === 'rosePink') {
+      var outerC = kind === 'rosePeach' ? '#e89984' : '#ea8fa3';
+      var midC = kind === 'rosePeach' ? '#f5b8a7' : '#f7b6c6';
+      var innerC = kind === 'rosePeach' ? '#d47462' : '#d66883';
+      var lightC = '#fff1ea';
+      for (i = 0; i < 8; i++) drawPetal((Math.PI * 2 * i) / 8, 34, 24, 22, outerC, lightC);
+      for (i = 0; i < 7; i++) drawPetal((Math.PI * 2 * i) / 7 + 0.3, 22, 19, 17, midC, lightC);
+      for (i = 0; i < 5; i++) drawPetal((Math.PI * 2 * i) / 5 + 0.6, 11, 13, 12, innerC, midC);
+      g.fillStyle = innerC;
+      g.beginPath();
+      g.arc(cx, cy, 8, 0, Math.PI * 2);
+      g.fill();
+    } else if (kind === 'sunflower') {
+      for (i = 0; i < 18; i++) drawPetal((Math.PI * 2 * i) / 18, 38, 9.5, 22, '#f5b942', '#fde68a');
+      for (i = 0; i < 14; i++) drawPetal((Math.PI * 2 * i) / 14 + 0.22, 30, 8, 17, '#e09b2d', '#fcd34d');
+      var sg = g.createRadialGradient(cx, cy, 4, cx, cy, 24);
+      sg.addColorStop(0, '#5a3b22');
+      sg.addColorStop(0.7, '#7c532d');
+      sg.addColorStop(1, '#a16c34');
+      g.fillStyle = sg;
+      g.beginPath();
+      g.arc(cx, cy, 23, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = 'rgba(253, 224, 71, 0.35)';
+      for (i = 0; i < 14; i++) {
+        a = i * 2.4;
+        r = 5 + (i % 4) * 3.8;
+        g.beginPath();
+        g.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1.4, 0, Math.PI * 2);
+        g.fill();
+      }
+    } else if (kind === 'daisy') {
+      for (i = 0; i < 14; i++) drawPetal((Math.PI * 2 * i) / 14, 34, 8.5, 22, '#eef2f6', '#ffffff');
+      var dg = g.createRadialGradient(cx - 2, cy - 2, 2, cx, cy, 14);
+      dg.addColorStop(0, '#fde047');
+      dg.addColorStop(1, '#eab308');
+      g.fillStyle = dg;
+      g.beginPath();
+      g.arc(cx, cy, 13.5, 0, Math.PI * 2);
+      g.fill();
+    } else if (kind === 'hydrangea') {
+      var spots = [
+        [0, 0], [-18, -12], [18, -10], [-16, 15], [16, 14],
+        [0, -24], [-25, 2], [25, 2], [0, 23], [-10, -2], [10, 4]
+      ];
+      var blues = ['#8fa8d6', '#a4bce8', '#7d95c7', '#b5c9f0'];
+      for (i = 0; i < spots.length; i++) {
+        var sx = cx + spots[i][0];
+        var sy = cy + spots[i][1];
+        var col = blues[i % blues.length];
+        for (var p = 0; p < 4; p++) {
+          var pa = (Math.PI * 0.5) * p + (i * 0.35);
+          g.fillStyle = col;
+          g.beginPath();
+          g.ellipse(sx + Math.cos(pa) * 9, sy + Math.sin(pa) * 9, 8.5, 7, pa, 0, Math.PI * 2);
+          g.fill();
+        }
+        g.fillStyle = '#e0e7ff';
+        g.beginPath();
+        g.arc(sx, sy, 2.2, 0, Math.PI * 2);
+        g.fill();
+      }
+    } else if (kind === 'iris') {
+      for (i = 0; i < 5; i++) drawPetal((Math.PI * 2 * i) / 5 - 0.3, 30, 17, 25, '#5b3ea6', '#8b6fd6');
+      for (i = 0; i < 3; i++) drawPetal((Math.PI * 2 * i) / 3 + 0.4, 18, 12, 18, '#462c8a', '#a78bfa');
+      g.fillStyle = '#fde047';
+      g.beginPath();
+      g.arc(cx, cy, 5.5, 0, Math.PI * 2);
+      g.fill();
+    } else if (kind === 'poppy') {
+      for (i = 0; i < 5; i++) drawPetal((Math.PI * 2 * i) / 5, 28, 22, 24, '#dc5a47', '#f78c74');
+      g.fillStyle = '#3f221d';
+      g.beginPath();
+      g.arc(cx, cy, 9, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#fde68a';
+      for (i = 0; i < 10; i++) {
+        a = (Math.PI * 2 * i) / 10;
+        g.beginPath();
+        g.arc(cx + Math.cos(a) * 11, cy + Math.sin(a) * 11, 1.5, 0, Math.PI * 2);
+        g.fill();
+      }
+    } else if (kind === 'plumeria') {
+      for (i = 0; i < 5; i++) drawPetal((Math.PI * 2 * i) / 5 + 0.15, 28, 13, 25, '#fde6c4', '#fffcf5');
+      var pg = g.createRadialGradient(cx, cy, 2, cx, cy, 14);
+      pg.addColorStop(0, '#f59e0b');
+      pg.addColorStop(1, 'rgba(253, 224, 71, 0)');
+      g.fillStyle = pg;
+      g.beginPath();
+      g.arc(cx, cy, 14, 0, Math.PI * 2);
+      g.fill();
+    } else {
+      // zinnia / dahlia
+      for (i = 0; i < 14; i++) drawPetal((Math.PI * 2 * i) / 14, 34, 11, 18, '#c94c68', '#f28ca2');
+      for (i = 0; i < 10; i++) drawPetal((Math.PI * 2 * i) / 10 + 0.3, 21, 9, 14, '#b83956', '#f7a6b8');
+      g.fillStyle = '#fbbf24';
+      g.beginPath();
+      g.arc(cx, cy, 8, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    return c;
   }
 
   function showFlowerCurtainThenLetter() {
@@ -1304,62 +1786,189 @@
     curtain.className = 'flower-curtain';
     curtain.setAttribute('aria-hidden', 'true');
 
-    var palette = [
-      ['#ffb8c9', '#fff1f5'],
-      ['#fb7185', '#fef08a'],
-      ['#fda4af', '#fffbeb'],
-      ['#f472b6', '#fce7f3'],
-      ['#fecdd3', '#fde047'],
-      ['#f43f5e', '#ffe4ec']
-    ];
-    var totalFlowers = 68;
-    var html = '<div class="curtain-backdrop"></div><div class="curtain-field">';
-    for (var i = 0; i < totalFlowers; i++) {
-      var pair = palette[i % palette.length];
-      var layer = i % 3; // 0 = foreground crisp, 1 = mid, 2 = soft distant
-      var left = ((i + 0.5) / totalFlowers) * 100 + (Math.random() - 0.5) * 8;
-      var startTop = -6 - Math.random() * 16;
-      var size = layer === 0 ? (3.5 + Math.random() * 1.8) : (layer === 1 ? (2.5 + Math.random() * 1.4) : (1.8 + Math.random() * 1.0));
-      var delay = Math.round((i % 10) * 32 + Math.random() * 180);
-      var dur = Math.round(1650 + Math.random() * 750);
-      var swayX1 = Math.round((Math.random() - 0.5) * 130);
-      var swayX2 = Math.round(swayX1 + (Math.random() - 0.5) * 150);
-      var swayX3 = Math.round(swayX2 + (Math.random() - 0.5) * 120);
-      var fallY = Math.round(108 + Math.random() * 28);
-      var spin = Math.round((Math.random() < 0.5 ? -1 : 1) * (160 + Math.random() * 200));
-      var alpha = layer === 2 ? '0.78' : '0.96';
-      html +=
-        '<span class="curtain-flower layer-' + layer + '" style="' +
-          'left:' + left.toFixed(1) + '%;' +
-          'top:' + startTop.toFixed(1) + '%;' +
-          'width:' + size.toFixed(2) + 'rem;' +
-          'height:' + size.toFixed(2) + 'rem;' +
-          '--d:' + delay + 'ms;' +
-          '--dur:' + dur + 'ms;' +
-          '--sx1:' + swayX1 + 'px;' +
-          '--sx2:' + swayX2 + 'px;' +
-          '--sx3:' + swayX3 + 'px;' +
-          '--fy:' + fallY + 'vh;' +
-          '--spin:' + spin + 'deg;' +
-          '--fa:' + alpha + ';' +
-        '">' +
-          makeFlowerSvg(pair[0], pair[1]) +
-        '</span>';
-    }
-    html += '</div>';
-    curtain.innerHTML = html;
+    var canvas = document.createElement('canvas');
+    canvas.id = 'flower-curtain-canvas';
+    canvas.className = 'flower-curtain-canvas';
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    curtain.appendChild(canvas);
     document.body.appendChild(curtain);
 
-    state.curtainTimer1 = setTimeout(function () {
-      state.curtainTimer1 = null;
-      clearWaitTimer();
-      state.stage = 'letter';
-      renderStage(true);
-      curtain.classList.add('is-dissolving');
-      state.curtainTimer2 = setTimeout(function () {
+    var ctx = canvas.getContext('2d');
+    var w = canvas.width;
+    var h = canvas.height;
+    var cx = w * 0.5;
+    var cy = h * 0.5;
+
+    var species = ['rosePeach', 'sunflower', 'hydrangea', 'daisy', 'iris', 'poppy', 'plumeria', 'rosePink', 'zinnia'];
+    var stamps = {};
+    for (var s = 0; s < species.length; s++) {
+      stamps[species[s]] = buildBotanicalStamp(species[s]);
+    }
+
+    var blossoms = [];
+    var i;
+    var clusterRadius = Math.min(w, h) * 0.25;
+
+    // Group 1: 65 core blossoms forming the tight center floral sphere (0 -> 1.05s)
+    for (i = 0; i < 65; i++) {
+      var ang = Math.random() * Math.PI * 2;
+      var rad = Math.sqrt(Math.random()) * clusterRadius;
+      blossoms.push({
+        kind: species[i % species.length],
+        x: cx + Math.cos(ang) * rad,
+        y: cy + Math.sin(ang) * rad * 0.92,
+        size: 62 + Math.random() * 68,
+        delay: (i / 65) * 0.65,
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() < 0.5 ? -1 : 1) * (1.8 + Math.random() * 2.6),
+        fallSpeed: 210 + Math.random() * 230,
+        swayAmp: 22 + Math.random() * 34,
+        swayFreq: 2.2 + Math.random() * 1.8,
+        phase: Math.random() * Math.PI * 2,
+        fallDelay: Math.random() * 0.38
+      });
+    }
+
+    // Group 2: 130 outer blossoms exploding outward to fill the entire screen (0.9s -> 2.25s)
+    var cols = Math.max(9, Math.ceil(w / 120));
+    var rows = Math.max(7, Math.ceil(h / 115));
+    var totalCells = cols * rows;
+    for (i = 0; i < Math.max(130, totalCells); i++) {
+      var colIdx = i % cols;
+      var rowIdx = Math.floor(i / cols) % rows;
+      var tx = ((colIdx + 0.15 + Math.random() * 0.7) / cols) * w;
+      var ty = ((rowIdx + 0.15 + Math.random() * 0.7) / rows) * h;
+      var distRatio = Math.min(1, Math.hypot(tx - cx, ty - cy) / (Math.hypot(w * 0.5, h * 0.5) || 1));
+      blossoms.push({
+        kind: species[(i + 3) % species.length],
+        x: tx,
+        y: ty,
+        size: 86 + Math.random() * 88,
+        delay: 0.85 + distRatio * 0.95 + Math.random() * 0.18,
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() < 0.5 ? -1 : 1) * (2.0 + Math.random() * 2.8),
+        fallSpeed: 220 + Math.random() * 240,
+        swayAmp: 26 + Math.random() * 38,
+        swayFreq: 2.0 + Math.random() * 2.0,
+        phase: Math.random() * Math.PI * 2,
+        fallDelay: Math.random() * 0.42
+      });
+    }
+
+    // Loose individual spinning petals that swirl and rain down during dissolve
+    var loosePetals = [];
+    var petalColors = ['#f5b8a7', '#fb7185', '#fde047', '#ffffff', '#a4bce8', '#8b6fd6', '#f78c74', '#f28ca2'];
+    for (i = 0; i < 95; i++) {
+      loosePetals.push({
+        x: Math.random() * w,
+        y: Math.random() * h * 0.95,
+        rx: 7 + Math.random() * 9,
+        ry: 4 + Math.random() * 5.5,
+        color: petalColors[i % petalColors.length],
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() < 0.5 ? -1 : 1) * (3.2 + Math.random() * 4.2),
+        vy: 190 + Math.random() * 230,
+        vx: (Math.random() - 0.5) * 65,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+
+    var startTime = performance.now();
+    var letterSwitched = false;
+
+    function tick(now) {
+      var t = Math.max(0, (now - startTime) * 0.001);
+      ctx.clearRect(0, 0, w, h);
+
+      // Warm cream watercolor backdrop (fades in smoothly, holds for full bloom, fades out as petals fall)
+      var bgAlpha = t < 0.35
+        ? (t / 0.35) * 0.96
+        : (t < 2.45 ? 0.96 : Math.max(0, 0.96 * (1 - (t - 2.45) / 1.05)));
+      if (bgAlpha > 0.01) {
+        ctx.fillStyle = 'rgba(247, 239, 224, ' + bgAlpha.toFixed(3) + ')';
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      if (t >= 2.45 && !letterSwitched) {
+        letterSwitched = true;
+        clearWaitTimer();
+        state.stage = 'letter';
+        renderStage(true);
+      }
+
+      var anyVisible = false;
+      var spinStart = 2.35;
+
+      for (i = 0; i < blossoms.length; i++) {
+        var b = blossoms[i];
+        var age = t - b.delay;
+        if (age <= 0) continue;
+
+        var bloomScale = age < 0.42 ? easeInOutCubic(age / 0.42) * 1.06 : 1;
+        var drawX = b.x;
+        var drawY = b.y;
+        var curRot = b.rot;
+        var tiltY = 1;
+        var alpha = Math.min(0.98, age / 0.25);
+
+        if (t > spinStart + b.fallDelay) {
+          var fallT = t - (spinStart + b.fallDelay);
+          curRot += fallT * b.rotSpeed;
+          drawX += Math.sin(fallT * b.swayFreq + b.phase) * b.swayAmp;
+          drawY += fallT * fallT * 85 + fallT * b.fallSpeed * 0.45;
+          tiltY = 0.62 + 0.38 * Math.abs(Math.cos(fallT * 2.6 + b.phase));
+          if (drawY > h - 90) {
+            alpha *= Math.max(0, (h + 110 - drawY) / 200);
+          }
+        }
+
+        if (drawY > h + 130 || alpha <= 0.02) continue;
+        anyVisible = true;
+
+        var stamp = stamps[b.kind];
+        var drawSize = b.size * bloomScale;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(drawX, drawY);
+        ctx.rotate(curRot);
+        ctx.scale(1, tiltY);
+        ctx.drawImage(stamp, -drawSize * 0.5, -drawSize * 0.5, drawSize, drawSize);
+        ctx.restore();
+      }
+
+      // Spinning individual petals cascading down once fall begins
+      if (t > spinStart - 0.15) {
+        var pT = Math.max(0, t - (spinStart - 0.15));
+        for (i = 0; i < loosePetals.length; i++) {
+          var lp = loosePetals[i];
+          var py = lp.y + pT * lp.vy + pT * pT * 55;
+          if (py > h + 40) continue;
+          anyVisible = true;
+          var px = lp.x + pT * lp.vx + Math.sin(pT * 3.1 + lp.phase) * 28;
+          var pAlpha = Math.min(0.92, pT / 0.25) * (py > h - 80 ? Math.max(0, (h + 35 - py) / 115) : 1);
+          ctx.save();
+          ctx.globalAlpha = pAlpha;
+          ctx.translate(px, py);
+          ctx.rotate(lp.rot + pT * lp.rotSpeed);
+          ctx.scale(1, 0.55 + 0.45 * Math.abs(Math.cos(pT * 3.5 + lp.phase)));
+          ctx.fillStyle = lp.color;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, lp.rx, lp.ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      ctx.globalAlpha = 1;
+      if (t < 2.6 || anyVisible) {
+        state.curtainRaf = requestAnimationFrame(tick);
+      } else {
         clearFlowerCurtain();
-      }, 950);
-    }, 2200);
+      }
+    }
+
+    state.curtainRaf = requestAnimationFrame(tick);
   }
 
   function startSmoothProgress(footer, durationMs, labelText, btnId, btnText, nextStage) {
@@ -1465,8 +2074,11 @@
 
   function renderStage(animateEnter) {
     var isFinale = state.stage === 'finale';
+    var isSpace = state.stage === 'space';
     document.body.dataset.stage = state.stage;
     shell.classList.toggle('finale-mode', isFinale);
+    shell.classList.toggle('space-mode', isSpace);
+    heartCanvas.classList.toggle('hidden', isSpace);
     var showAmbientFx = state.stage === 'letter' || state.stage === 'bouquet' || state.stage === 'wishes' || state.stage === 'gallery';
     petalsLayer.classList.toggle(
       'hidden',
@@ -1475,6 +2087,10 @@
     if (ambientGlitterCanvas) {
       ambientGlitterCanvas.classList.toggle('hidden', !showAmbientFx);
       if (showAmbientFx) startAmbientGlitterLoop();
+    }
+    if (spaceWishesCanvas) {
+      spaceWishesCanvas.classList.toggle('hidden', !isSpace);
+      if (isSpace) startSpaceWishesLoop();
     }
     fireworksCanvas.classList.toggle('hidden', !isFinale);
     if (finaleFloralCanvas) finaleFloralCanvas.classList.toggle('hidden', !isFinale);
@@ -1496,6 +2112,7 @@
     else if (state.stage === 'bouquet') renderBouquet();
     else if (state.stage === 'wishes') renderWishes();
     else if (state.stage === 'gallery') renderGallery();
+    else if (state.stage === 'space') renderSpaceWishes();
     else if (state.stage === 'finale') renderFinale();
   }
 
@@ -1505,49 +2122,91 @@
         '<div class="intro-hero">' +
           '<p class="kicker">Ngày Nhà Giáo Việt Nam 20 · 11</p>' +
           '<h1 class="hero-title">Gửi trọn yêu thương đến Cô ' + TEACHER_NAME + '</h1>' +
-          '<p class="hero-sub">Có một lá thư tri ân từ tấm lòng của 45 học trò đang chờ cô mở ra. Mời cô chạm vào phong thư bên dưới.</p>' +
+          '<p class="hero-sub">Có một hộp quà bất ngờ chứa đầy hoa và lá thư tri ân từ tấm lòng của 45 học trò đang chờ cô mở ra. Mời cô chạm vào hộp quà bên dưới.</p>' +
         '</div>' +
         '<div class="heart-spacer" aria-hidden="true"></div>' +
         '<div class="envelope-wrap">' +
-          '<div class="envelope-card" id="intro-envelope">' +
-            '<div class="envelope-back" aria-hidden="true"></div>' +
-            '<div class="envelope-peek-letter" aria-hidden="true">' +
-              '<span class="peek-kicker">Kính gửi Cô ' + TEACHER_NAME + '</span>' +
-              '<strong class="peek-title">Lời chúc tri ân 20/11</strong>' +
-              '<span class="peek-line">Từ tập thể 45 học sinh yêu quý...</span>' +
-            '</div>' +
-            '<div class="envelope-front" aria-hidden="true"></div>' +
-            '<div class="envelope-flap" aria-hidden="true">' +
-              '<span class="envelope-wax">♥</span>' +
-            '</div>' +
-            '<div class="envelope-cta">' +
-              '<div class="open-btn-wrap">' +
-                '<span class="open-btn-halo" aria-hidden="true"></span>' +
-                '<button type="button" id="open-letter-btn" class="btn-primary">✉ Mở lá thư</button>' +
+          '<div class="giftbox-stage" id="intro-giftstage">' +
+            '<div class="giftbox-card" id="intro-giftbox">' +
+              '<div class="gift-glow-aura" aria-hidden="true"></div>' +
+              '<div class="gift-shadow" aria-hidden="true"></div>' +
+              '<div class="gift-sparkles" aria-hidden="true">' +
+                '<span class="gift-spark s1">✨</span>' +
+                '<span class="gift-spark s2">🌸</span>' +
+                '<span class="gift-spark s3">✿</span>' +
+                '<span class="gift-spark s4">✨</span>' +
+              '</div>' +
+              '<div class="gift-lid" aria-hidden="true">' +
+                '<div class="gift-lid-ribbon"></div>' +
+                '<div class="gift-bow">' +
+                  '<span class="gift-bow-loop left"></span>' +
+                  '<span class="gift-bow-loop right"></span>' +
+                  '<span class="gift-bow-knot"></span>' +
+                '</div>' +
+              '</div>' +
+              '<div class="gift-body" aria-hidden="true">' +
+                '<div class="gift-ribbon-v"></div>' +
+                '<div class="gift-ribbon-h"></div>' +
+                '<span class="gift-tag">20 · 11 ♥</span>' +
               '</div>' +
             '</div>' +
           '</div>' +
-          '<p class="envelope-caption">Lá thư tri ân gửi Cô ' + TEACHER_NAME + ' · 20/11</p>' +
+          '<div class="envelope-cta">' +
+            '<div class="open-btn-wrap">' +
+              '<span class="open-btn-halo" aria-hidden="true"></span>' +
+              '<button type="button" id="open-letter-btn" class="btn-primary">🎁 Mở hộp quà</button>' +
+            '</div>' +
+            '<p class="envelope-caption" id="gift-caption">Hộp quà tri ân gửi Cô ' + TEACHER_NAME + ' · 20/11</p>' +
+          '</div>' +
         '</div>' +
       '</section>';
 
-    var env = document.getElementById('intro-envelope');
+    var giftStage = document.getElementById('intro-giftstage');
+    var giftBox = document.getElementById('intro-giftbox');
     var openBtn = document.getElementById('open-letter-btn');
-    function openEnvelope(e) {
+    var captionEl = document.getElementById('gift-caption');
+
+    function openGiftBox(e) {
       if (e) e.stopPropagation();
-      if (env.classList.contains('is-opening')) return;
-      env.classList.add('is-opening');
+      if (giftBox.classList.contains('is-shaking') || giftBox.classList.contains('is-opening')) return;
+      giftBox.classList.add('is-shaking');
       openBtn.disabled = true;
-      spawnButtonBurst(openBtn);
-      playChime([523.25, 659.25, 783.99, 1046.5], 0.08, 0.045);
+      openBtn.textContent = '✨ Hộp quà đang rung rinh...';
+      if (captionEl) captionEl.textContent = 'Chờ một chút nhé, điều bất ngờ sắp bung nở...';
+
+      spawnButtonBurst(giftBox);
+      playChime([523.25, 587.33, 659.25], 0.14, 0.032);
       if (!state.isPlaying && !state.userToggledAudio) startMusic();
+
+      state.shakeBurstTimer = setInterval(function () {
+        if (!document.body.contains(giftBox) || !giftBox.classList.contains('is-shaking')) {
+          clearInterval(state.shakeBurstTimer);
+          state.shakeBurstTimer = null;
+          return;
+        }
+        spawnButtonBurst(giftBox);
+      }, 720);
+
+      // Shake 2.75s (within 2-4s), then pop lid & launch floral cluster -> full-screen tapestry -> spin & fall
       state.transitionTimer = setTimeout(function () {
-        state.transitionTimer = null;
-        showFlowerCurtainThenLetter();
-      }, 420);
+        if (state.shakeBurstTimer) {
+          clearInterval(state.shakeBurstTimer);
+          state.shakeBurstTimer = null;
+        }
+        giftBox.classList.remove('is-shaking');
+        giftBox.classList.add('is-opening');
+        spawnButtonBurst(giftBox);
+        playChime([523.25, 659.25, 783.99, 1046.5], 0.08, 0.045);
+
+        state.transitionTimer = setTimeout(function () {
+          state.transitionTimer = null;
+          showFlowerCurtainThenLetter();
+        }, 360);
+      }, 2750);
     }
-    openBtn.addEventListener('click', openEnvelope);
-    env.addEventListener('click', openEnvelope);
+
+    openBtn.addEventListener('click', openGiftBox);
+    giftStage.addEventListener('click', openGiftBox);
   }
 
   function renderLetter() {
@@ -1957,7 +2616,7 @@
         bodyHtml +
         '<div class="gallery-footer">' +
           '<span style="font-size:0.78rem;color:#9f1239;">Vuốt trái hoặc phải để xem hết các bức ảnh kỷ niệm cùng lời chúc bên dưới.</span>' +
-          '<button type="button" id="finish-btn" class="btn-primary">✨ Kết thúc</button>' +
+          '<button type="button" id="finish-btn" class="btn-primary">🌌 Vũ trụ lời chúc →</button>' +
         '</div>' +
       '</div>';
 
@@ -1970,7 +2629,7 @@
       renderGallery();
     });
     document.getElementById('finish-btn').addEventListener('click', function () {
-      setStage('finale', this);
+      setStage('space', this);
     });
 
     if (state.galleryView === 'swipe') {
@@ -2044,6 +2703,62 @@
         '<span class="cannon-base" aria-hidden="true"></span>' +
       '</button>'
     );
+  }
+
+  function renderSpaceWishes() {
+    stageRoot.innerHTML =
+      '<section class="space-stage-wrap" id="space-stage-wrap">' +
+        '<div class="space-hud-header">' +
+          '<span class="meta-label">Trang 5 · Vũ trụ lời chúc &amp; trái tim</span>' +
+          '<h2 class="space-hud-title">Ngàn lời tri ân bay giữa bầu trời sao</h2>' +
+          '<p class="space-hud-sub">Chạm hoặc kéo nhẹ màn hình để xoay góc nhìn vũ trụ gửi Cô ' + TEACHER_NAME + '</p>' +
+        '</div>' +
+        '<div class="space-hud-controls">' +
+          '<button type="button" id="space-love-btn" class="btn-dark-pill">💖 Thả thêm tim &amp; chữ</button>' +
+          '<button type="button" id="space-to-finale-btn" class="btn-primary" style="padding:0.62rem 1.4rem;font-size:0.84rem;">✨ Đến trang kết →</button>' +
+        '</div>' +
+      '</section>';
+
+    var wrap = document.getElementById('space-stage-wrap');
+    var dragging = false;
+    var dragStartX = 0;
+    var dragStartY = 0;
+    var baseYaw = swTargetYaw;
+    var basePitch = swTargetPitch;
+
+    wrap.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('button')) return;
+      dragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      baseYaw = swTargetYaw;
+      basePitch = swTargetPitch;
+    });
+    wrap.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      swTargetYaw = Math.max(-0.55, Math.min(0.55, baseYaw + (e.clientX - dragStartX) * 0.0022));
+      swTargetPitch = Math.max(-0.4, Math.min(0.4, basePitch + (e.clientY - dragStartY) * 0.002));
+    });
+    wrap.addEventListener('pointerup', function (e) {
+      if (dragging && Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY) < 8) {
+        playChime([659.25, 880.0, 1046.5], 0.05, 0.032);
+        spawnSpaceBurst(e.clientX, e.clientY, true);
+      }
+      dragging = false;
+    });
+    wrap.addEventListener('pointercancel', function () {
+      dragging = false;
+    });
+
+    document.getElementById('space-love-btn').addEventListener('click', function () {
+      spawnButtonBurst(this);
+      playChime([523.25, 659.25, 783.99, 1046.5], 0.055, 0.038);
+      spawnSpaceBurst(window.innerWidth * 0.35, window.innerHeight * 0.5, true);
+      spawnSpaceBurst(window.innerWidth * 0.65, window.innerHeight * 0.45, true);
+    });
+    document.getElementById('space-to-finale-btn').addEventListener('click', function () {
+      setStage('finale', this);
+    });
   }
 
   function renderFinale() {
