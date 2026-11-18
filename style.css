@@ -62,9 +62,15 @@ button {
   color: #fff1f2;
 }
 
+.app-shell.portrait-mode {
+  background: radial-gradient(circle at 50% 56%, #450614 0%, #1b0208 50%, #070002 100%);
+  color: #fff1f2;
+}
+
 .bg-canvas,
 .ambient-glitter-canvas,
 .space-wishes-canvas,
+.portrait-heart-canvas,
 .fx-canvas,
 .fx-floral-canvas,
 .petals-layer {
@@ -88,7 +94,8 @@ button {
   overflow: hidden;
 }
 
-.space-wishes-canvas {
+.space-wishes-canvas,
+.portrait-heart-canvas {
   z-index: 6;
 }
 
@@ -114,7 +121,8 @@ button {
 }
 
 .app-shell.finale-mode .top-bar,
-.app-shell.space-mode .top-bar {
+.app-shell.space-mode .top-bar,
+.app-shell.portrait-mode .top-bar {
   border-bottom-color: rgba(253, 164, 175, 0.35);
   background: rgba(24, 3, 13, 0.9);
   color: #fff1f2;
@@ -134,7 +142,7 @@ button {
 .top-nav {
   display: none;
   align-items: center;
-  gap: 1.25rem;
+  gap: clamp(0.65rem, 1.25vw, 1.15rem);
 }
 
 @media (min-width: 768px) {
@@ -164,14 +172,17 @@ button {
 }
 
 .app-shell.finale-mode .nav-link,
-.app-shell.space-mode .nav-link {
+.app-shell.space-mode .nav-link,
+.app-shell.portrait-mode .nav-link {
   color: rgba(255, 228, 230, 0.85);
 }
 
 .app-shell.finale-mode .nav-link:hover,
 .app-shell.finale-mode .nav-link.active,
 .app-shell.space-mode .nav-link:hover,
-.app-shell.space-mode .nav-link.active {
+.app-shell.space-mode .nav-link.active,
+.app-shell.portrait-mode .nav-link:hover,
+.app-shell.portrait-mode .nav-link.active {
   color: #ffffff;
 }
 
@@ -311,10 +322,9 @@ button {
 
 .gift-glow-aura {
   position: absolute;
-  inset: -1.4rem -1.8rem -0.6rem;
+  inset: -1.6rem -2rem -0.8rem;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(251, 113, 133, 0.28) 0%, rgba(253, 224, 71, 0.14) 45%, rgba(255, 255, 255, 0) 72%);
-  filter: blur(10px);
+  background: radial-gradient(circle, rgba(251, 113, 133, 0.34) 0%, rgba(253, 224, 71, 0.16) 45%, rgba(255, 255, 255, 0) 74%);
   opacity: 0.65;
   pointer-events: none;
   transition: opacity 0.35s ease, transform 0.35s ease;
@@ -766,7 +776,11 @@ button {
   max-height: 410px;
   height: auto;
   display: block;
-  filter: drop-shadow(0 14px 26px rgba(15, 5, 8, 0.45));
+}
+
+.bq-sway-whole {
+  transform-origin: 190px 334px;
+  animation: bouquetWholeSway 5.4s ease-in-out 1.4s infinite;
 }
 
 .bq-stem {
@@ -778,7 +792,10 @@ button {
 .bq-leaves {
   opacity: 0;
   transform-origin: 190px 318px;
-  animation: leavesEmerge 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.14s forwards;
+  will-change: transform, opacity;
+  animation:
+    leavesEmerge 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.14s forwards,
+    leafBreezeSway 4.8s ease-in-out 1.0s infinite;
 }
 
 .tlp-wrap {
@@ -788,25 +805,32 @@ button {
 .tlp-mover {
   opacity: 0;
   transform: translate3d(var(--sx, 0px), var(--sy, 140px), 0) scale(0.22) rotate(0deg);
+  will-change: transform, opacity;
   animation: tulipRiseAndBloom 1.55s cubic-bezier(0.22, 1, 0.36, 1) var(--bd, 0.3s) forwards;
 }
 
 .tlp-head {
-  filter: drop-shadow(0 0 9px rgba(255, 200, 214, 0.72));
+  transform-origin: 0px 6px;
+  will-change: transform;
+  animation: tulipHeadSway 3.8s ease-in-out var(--swd, 1.5s) infinite;
 }
 
 .tlp-petal-l {
   transform-origin: 0px 4px;
+  will-change: transform;
   animation: petalOpenLeft 1.55s cubic-bezier(0.22, 1, 0.36, 1) var(--bd, 0.3s) forwards;
 }
 
 .tlp-petal-r {
   transform-origin: 0px 4px;
+  will-change: transform;
   animation: petalOpenRight 1.55s cubic-bezier(0.22, 1, 0.36, 1) var(--bd, 0.3s) forwards;
 }
 
 .bq-spark {
-  animation: sparkTwinkle 2.2s ease-in-out var(--sd, 0s) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sparkTwinkle 2.1s ease-in-out var(--sd, 0s) infinite;
 }
 
 .bq-filler > g {
@@ -892,12 +916,39 @@ button {
 
 @keyframes sparkTwinkle {
   0%, 100% {
-    opacity: 0.25;
-    transform: scale(0.8);
+    opacity: 0.18;
+    transform: scale(0.55) rotate(0deg);
   }
   50% {
-    opacity: 0.95;
-    transform: scale(1.25);
+    opacity: 1;
+    transform: scale(1.32) rotate(45deg);
+  }
+}
+
+@keyframes bouquetWholeSway {
+  0%, 100% {
+    transform: rotate(-1.5deg);
+  }
+  50% {
+    transform: rotate(1.5deg);
+  }
+}
+
+@keyframes leafBreezeSway {
+  0%, 100% {
+    transform: rotate(-1.4deg) scale(1);
+  }
+  50% {
+    transform: rotate(1.6deg) scale(1.012);
+  }
+}
+
+@keyframes tulipHeadSway {
+  0%, 100% {
+    transform: rotate(-3.8deg) translateY(0);
+  }
+  50% {
+    transform: rotate(3.8deg) translateY(-2.5px);
   }
 }
 
@@ -950,8 +1001,7 @@ button {
 }
 
 .card-narrow.wish-decorated-card {
-  background: rgba(255, 250, 252, 0.86);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 250, 252, 0.94);
 }
 
 .card-corner-spark {
@@ -2022,11 +2072,27 @@ button {
   padding: 0.4rem 0 0.5rem;
   cursor: grab;
   user-select: none;
+  touch-action: none;
 }
 
 @media (max-width: 640px) {
   .space-stage-wrap {
-    padding-bottom: 5.6rem;
+    min-height: calc(100vh - 210px);
+    padding: 0.15rem 0 0.35rem;
+  }
+  .space-hud-header {
+    padding: 0.5rem 0.9rem;
+    max-width: 96%;
+  }
+  .space-hud-title {
+    font-size: 1.02rem;
+  }
+  .space-hud-sub {
+    font-size: 0.72rem;
+  }
+  .space-hud-controls {
+    padding: 0.45rem 0.65rem;
+    gap: 0.45rem;
   }
 }
 
@@ -2096,4 +2162,360 @@ button {
   45% { opacity: 1; transform: translateX(-50%) scale(1.35); }
   100% { opacity: 0; transform: translateX(-50%) scale(1.75); }
 }
+
+/* Portrait Showcase Stage (Trang 6 · Trái tim đỏ xoay 360° + Ảnh đỉnh tim + Ảnh hai bên lên lần lượt) */
+.portrait-stage-wrap {
+  width: 100%;
+  max-width: 68rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.portrait-hud-header {
+  text-align: center;
+  padding: 0.6rem 1.3rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 92, 122, 0.42);
+  background: rgba(24, 3, 9, 0.84);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.52);
+}
+
+.portrait-hud-header .meta-label {
+  color: #ff8fa3;
+}
+
+.portrait-hud-title {
+  margin: 0.18rem 0 0;
+  font-size: clamp(1.12rem, 2.25vw, 1.52rem);
+  font-weight: 700;
+  color: #ffffff;
+  text-wrap: balance;
+}
+
+.portrait-hud-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: rgba(255, 224, 230, 0.9);
+}
+
+.portrait-arena {
+  position: relative;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0.42rem;
+  height: clamp(390px, 56vh, 490px);
+  min-height: 360px;
+  border-radius: 1.35rem;
+  border: 1px solid rgba(255, 77, 109, 0.3);
+  background: radial-gradient(circle at 50% 62%, rgba(164, 19, 60, 0.14) 0%, rgba(16, 1, 6, 0.18) 65%, rgba(8, 0, 3, 0.26) 100%);
+  box-shadow: inset 0 0 38px rgba(130, 10, 36, 0.22), 0 18px 44px rgba(0, 0, 0, 0.45);
+  padding: 0.45rem 0.4rem;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.portrait-arena.is-dragging {
+  cursor: grabbing;
+}
+
+@media (min-width: 768px) {
+  .portrait-arena {
+    grid-template-columns: minmax(210px, 265px) minmax(260px, 1fr) minmax(210px, 265px);
+    gap: clamp(0.85rem, 2.4vw, 1.85rem);
+    height: clamp(425px, calc(100vh - 285px), 535px);
+    padding: 0.65rem clamp(0.9rem, 2.8vw, 2rem);
+  }
+}
+
+.portrait-lane {
+  position: relative;
+  z-index: 3;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0.25rem 0;
+}
+
+.portrait-lane::before,
+.portrait-lane::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2rem;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.portrait-lane::before {
+  top: 0;
+  background: linear-gradient(180deg, rgba(16, 2, 7, 0.72) 0%, rgba(16, 2, 7, 0) 100%);
+}
+
+.portrait-lane::after {
+  bottom: 0;
+  background: linear-gradient(0deg, rgba(16, 2, 7, 0.72) 0%, rgba(16, 2, 7, 0) 100%);
+}
+
+.portrait-side-card {
+  width: 100%;
+  max-width: 112px;
+  margin: 0;
+  border-radius: 0.9rem;
+  border: 1.5px solid rgba(255, 179, 193, 0.85);
+  background: linear-gradient(180deg, #fffdfb 0%, #fff0f3 100%);
+  padding: 0.35rem 0.35rem 0.55rem;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.54), 0 0 24px rgba(255, 46, 85, 0.28);
+  cursor: pointer;
+  will-change: transform, opacity;
+  --rise-start: 165px;
+  --rise-end: -170px;
+  animation: portraitSideRiseCycle 10.5s cubic-bezier(0.22, 0.85, 0.35, 1) 0s infinite both;
+}
+
+.portrait-lane.side-right .portrait-side-card {
+  animation-delay: 1.5s;
+}
+
+.portrait-arena.paused .portrait-side-card,
+.portrait-arena.paused .portrait-crown-card {
+  animation-play-state: paused;
+}
+
+@media (min-width: 768px) {
+  .portrait-side-card {
+    max-width: 242px;
+    border-radius: 1.05rem;
+    padding: 0.55rem 0.55rem 0.8rem;
+    --rise-start: 205px;
+    --rise-end: -210px;
+  }
+}
+
+.portrait-photo-box {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 155px;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  border: 1px solid #ffb3c1;
+  background: #ffe5ec;
+}
+
+@media (min-width: 768px) {
+  .portrait-photo-box {
+    max-height: 275px;
+    border-radius: 0.72rem;
+  }
+}
+
+.portrait-photo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+.portrait-caption {
+  padding: 0.42rem 0.15rem 0.05rem;
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .portrait-caption {
+    padding: 0.65rem 0.3rem 0.1rem;
+  }
+}
+
+.portrait-student-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #590d22;
+  line-height: 1.25;
+}
+
+.portrait-student-sub {
+  margin: 0.14rem 0 0;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: #a4133c;
+  line-height: 1.25;
+}
+
+@media (min-width: 768px) {
+  .portrait-student-name {
+    font-size: 1.08rem;
+  }
+  .portrait-student-sub {
+    margin: 0.22rem 0 0;
+    font-size: 0.76rem;
+  }
+}
+
+/* Center Column: Crown Photo on Top of Rotatable 3D Crimson Heart */
+.portrait-center-column {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.15rem 0 0.25rem;
+  pointer-events: none;
+}
+
+.portrait-crown-card {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 96px;
+  padding: 0.3rem;
+  border-radius: 0.95rem;
+  border: 1.5px solid rgba(255, 196, 209, 0.9);
+  background: linear-gradient(180deg, rgba(255, 248, 250, 0.97) 0%, rgba(255, 224, 232, 0.95) 100%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55), 0 0 28px rgba(255, 23, 68, 0.55);
+  cursor: pointer;
+  animation: portraitCrownRise 1s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both, portraitCrownBob 4.2s ease-in-out 1.25s infinite;
+}
+
+@media (min-width: 768px) {
+  .portrait-crown-card {
+    width: 146px;
+    padding: 0.42rem;
+    border-radius: 1.05rem;
+  }
+}
+
+.portrait-crown-img-wrap {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 0.65rem;
+  overflow: hidden;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: #ffd6e0;
+}
+
+.portrait-crown-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.portrait-crown-title {
+  margin: 0.28rem 0 0;
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  color: #590d22;
+}
+
+@media (min-width: 768px) {
+  .portrait-crown-title {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+  }
+}
+
+.portrait-heart-slot {
+  width: 100%;
+  flex: 1;
+  min-height: 190px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 0.15rem;
+}
+
+.portrait-heart-hint {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: rgba(255, 214, 224, 0.9);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+}
+
+@media (min-width: 768px) {
+  .portrait-heart-slot {
+    min-height: 245px;
+  }
+  .portrait-heart-hint {
+    font-size: 0.76rem;
+  }
+}
+
+.portrait-hud-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 92, 122, 0.42);
+  background: rgba(24, 3, 9, 0.86);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.54);
+}
+
+@keyframes portraitSideRiseCycle {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, var(--rise-start, 185px), 0) scale(0.86);
+  }
+  15% {
+    opacity: 1;
+    transform: translate3d(0, 62px, 0) scale(0.97);
+  }
+  52% {
+    opacity: 1;
+    transform: translate3d(0, -4px, 0) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translate3d(0, -68px, 0) scale(0.97);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, var(--rise-end, -195px), 0) scale(0.88);
+  }
+}
+
+@keyframes portraitCrownRise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 56px, 0) scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes portraitCrownBob {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -5px, 0);
+  }
+}
+
+
 
