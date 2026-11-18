@@ -174,13 +174,20 @@
     lyricTimer: null,
     lyricClock: 0,
     userToggledAudio: false,
-    customUrls: {}
+    customUrls: {},
+    waitRaf: null,
+    curtainTimer1: null,
+    curtainTimer2: null,
+    floralTubeTimer: null,
+    cannonAutoTimer: null
   };
 
   var shell = document.getElementById('app-shell');
   var stageRoot = document.getElementById('stage-root');
   var petalsLayer = document.getElementById('petals-layer');
+  var ambientGlitterCanvas = document.getElementById('ambient-glitter-canvas');
   var fireworksCanvas = document.getElementById('fireworks-canvas');
+  var finaleFloralCanvas = document.getElementById('finale-floral-canvas');
   var topActionBtn = document.getElementById('top-action-btn');
 
   // --- Sound Effects ---
@@ -447,12 +454,181 @@
   function resizeCanvases() {
     heartCanvas.width = window.innerWidth;
     heartCanvas.height = window.innerHeight;
+    if (ambientGlitterCanvas) {
+      ambientGlitterCanvas.width = window.innerWidth;
+      ambientGlitterCanvas.height = window.innerHeight;
+    }
     fireworksCanvas.width = window.innerWidth;
     fireworksCanvas.height = window.innerHeight;
-    if (fwWeatherInitialized) initFinaleWeather();
+    if (finaleFloralCanvas) {
+      finaleFloralCanvas.width = window.innerWidth;
+      finaleFloralCanvas.height = window.innerHeight;
+    }
+    if (typeof agInitialized !== 'undefined' && agInitialized) initAmbientGlitter();
+    if (typeof fwWeatherInitialized !== 'undefined' && fwWeatherInitialized) initFinaleWeather();
   }
   window.addEventListener('resize', resizeCanvases);
   resizeCanvases();
+
+  // --- Ambient Bubbles & Shimmering Glitter (Outside & Behind Letter/Wishes) ---
+  var agCtx = ambientGlitterCanvas ? ambientGlitterCanvas.getContext('2d') : null;
+  var agBubbles = [];
+  var agGlitters = [];
+  var agInitialized = false;
+  var agRafId = null;
+
+  function initAmbientGlitter() {
+    if (!ambientGlitterCanvas) return;
+    var w = ambientGlitterCanvas.width || window.innerWidth;
+    var h = ambientGlitterCanvas.height || window.innerHeight;
+    var i;
+    agBubbles.length = 0;
+    agGlitters.length = 0;
+
+    var bubbleTints = [
+      ['rgba(255, 255, 255, 0.55)', 'rgba(253, 164, 175, 0.42)', 'rgba(244, 114, 182, 0.25)'],
+      ['rgba(255, 255, 255, 0.58)', 'rgba(254, 215, 170, 0.36)', 'rgba(251, 113, 133, 0.22)'],
+      ['rgba(255, 255, 255, 0.62)', 'rgba(224, 242, 254, 0.38)', 'rgba(249, 168, 212, 0.26)']
+    ];
+    for (i = 0; i < 36; i++) {
+      var tint = bubbleTints[i % bubbleTints.length];
+      agBubbles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: 9 + Math.random() * 24,
+        vy: -(0.45 + Math.random() * 0.85),
+        vx: (Math.random() - 0.5) * 0.35,
+        phase: Math.random() * Math.PI * 2,
+        wobble: 0.35 + Math.random() * 0.55,
+        tint: tint,
+        alpha: 0.48 + Math.random() * 0.4
+      });
+    }
+
+    var glitterColors = ['#fde047', '#fef08a', '#fb7185', '#f472b6', '#ffffff', '#f59e0b'];
+    for (i = 0; i < 82; i++) {
+      agGlitters.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        size: i % 4 === 0 ? (3.5 + Math.random() * 4.5) : (1.6 + Math.random() * 2.4),
+        vy: 0.35 + Math.random() * 0.75,
+        vx: (Math.random() - 0.5) * 0.38,
+        phase: Math.random() * Math.PI * 2,
+        twinkleSpeed: 0.045 + Math.random() * 0.06,
+        rot: Math.random() * Math.PI,
+        rotSpeed: (Math.random() - 0.5) * 0.04,
+        isStar: i % 4 === 0,
+        color: glitterColors[i % glitterColors.length]
+      });
+    }
+    agInitialized = true;
+  }
+
+  function startAmbientGlitterLoop() {
+    if (!agCtx || !ambientGlitterCanvas) return;
+    if (!agInitialized) initAmbientGlitter();
+    if (!agRafId) agRafId = requestAnimationFrame(renderAmbientGlitter);
+  }
+
+  function renderAmbientGlitter() {
+    if (!agCtx || !ambientGlitterCanvas) {
+      agRafId = null;
+      return;
+    }
+    var showBgFx = state.stage === 'letter' || state.stage === 'bouquet' || state.stage === 'wishes' || state.stage === 'gallery';
+    if (!showBgFx) {
+      agCtx.clearRect(0, 0, ambientGlitterCanvas.width, ambientGlitterCanvas.height);
+      agRafId = null;
+      return;
+    }
+
+    var w = ambientGlitterCanvas.width;
+    var h = ambientGlitterCanvas.height;
+    var boost = state.stage === 'letter' ? 1.15 : 0.85;
+    agCtx.clearRect(0, 0, w, h);
+
+    // 1. Floating pearl-iridescent bubbles rising smoothly outside & behind the letter
+    for (var i = 0; i < agBubbles.length; i++) {
+      var b = agBubbles[i];
+      b.phase += 0.024;
+      b.y += b.vy;
+      b.x += b.vx + Math.sin(b.phase) * b.wobble;
+      if (b.y < -b.r - 12) {
+        b.y = h + b.r + Math.random() * 40;
+        b.x = Math.random() * w;
+      }
+      if (b.x < -b.r - 10) b.x = w + b.r;
+      if (b.x > w + b.r + 10) b.x = -b.r;
+
+      var pulseR = b.r * (0.96 + 0.04 * Math.sin(b.phase * 1.4));
+      var grad = agCtx.createRadialGradient(
+        b.x - pulseR * 0.32, b.y - pulseR * 0.32, pulseR * 0.1,
+        b.x, b.y, pulseR
+      );
+      grad.addColorStop(0, b.tint[0]);
+      grad.addColorStop(0.55, b.tint[2]);
+      grad.addColorStop(1, b.tint[1]);
+
+      agCtx.globalAlpha = Math.min(1, b.alpha * boost);
+      agCtx.fillStyle = grad;
+      agCtx.beginPath();
+      agCtx.arc(b.x, b.y, pulseR, 0, Math.PI * 2);
+      agCtx.fill();
+
+      agCtx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+      agCtx.lineWidth = 1.25;
+      agCtx.stroke();
+
+      // Glossy highlight dot on upper-left rim
+      agCtx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      agCtx.beginPath();
+      agCtx.ellipse(b.x - pulseR * 0.36, b.y - pulseR * 0.36, pulseR * 0.22, pulseR * 0.12, -0.65, 0, Math.PI * 2);
+      agCtx.fill();
+    }
+
+    // 2. Shimmering falling & twinkling glitter specks & 4-point diamond stars
+    for (var j = 0; j < agGlitters.length; j++) {
+      var g = agGlitters[j];
+      g.phase += g.twinkleSpeed;
+      g.y += g.vy;
+      g.x += g.vx + Math.sin(g.phase * 0.6) * 0.25;
+      g.rot += g.rotSpeed;
+      if (g.y > h + 14) {
+        g.y = -12;
+        g.x = Math.random() * w;
+      }
+      if (g.x < -12) g.x = w + 10;
+      if (g.x > w + 12) g.x = -10;
+
+      var flicker = 0.28 + 0.72 * Math.pow(0.5 + 0.5 * Math.sin(g.phase), 2);
+      agCtx.globalAlpha = Math.min(1, flicker * boost);
+      agCtx.fillStyle = g.color;
+
+      if (g.isStar) {
+        agCtx.save();
+        agCtx.translate(g.x, g.y);
+        agCtx.rotate(g.rot);
+        var sr = g.size * (0.85 + 0.3 * flicker);
+        agCtx.beginPath();
+        agCtx.moveTo(0, -sr);
+        agCtx.quadraticCurveTo(sr * 0.18, -sr * 0.18, sr, 0);
+        agCtx.quadraticCurveTo(sr * 0.18, sr * 0.18, 0, sr);
+        agCtx.quadraticCurveTo(-sr * 0.18, sr * 0.18, -sr, 0);
+        agCtx.quadraticCurveTo(-sr * 0.18, -sr * 0.18, 0, -sr);
+        agCtx.fill();
+        agCtx.restore();
+      } else {
+        agCtx.beginPath();
+        agCtx.arc(g.x, g.y, g.size, 0, Math.PI * 2);
+        agCtx.fill();
+      }
+    }
+
+    agCtx.globalAlpha = 1;
+    setTimeout(function () {
+      agRafId = requestAnimationFrame(renderAmbientGlitter);
+    }, 30);
+  }
 
   function renderHeart(now) {
     var mode = state.stage === 'finale' ? 'finale' : 'ambient';
@@ -647,18 +823,33 @@
     }
   }
 
-  function launchRocket(xPos) {
+  function launchRocket(xPos, startY, vxOverride, vyOverride) {
     var w = fireworksCanvas.width || window.innerWidth;
     var h = fireworksCanvas.height || window.innerHeight;
     fwRockets.push({
       x: typeof xPos === 'number' ? xPos : w * (0.1 + Math.random() * 0.8),
-      y: h * 0.96,
-      vy: -(7.8 + Math.random() * 3.4),
-      vx: (Math.random() - 0.5) * 1.1,
-      targetY: h * (0.1 + Math.random() * 0.36),
+      y: typeof startY === 'number' ? startY : h * 0.96,
+      vy: typeof vyOverride === 'number' ? vyOverride : -(7.8 + Math.random() * 3.4),
+      vx: typeof vxOverride === 'number' ? vxOverride : (Math.random() - 0.5) * 1.1,
+      targetY: h * (0.1 + Math.random() * 0.34),
       color: fwColors[Math.floor(Math.random() * fwColors.length)],
       trail: []
     });
+  }
+
+  function fireCannonEl(cannonEl, dirSign) {
+    if (!cannonEl || state.stage !== 'finale') return;
+    var rect = cannonEl.getBoundingClientRect();
+    var startX = rect.left + rect.width * 0.5 + dirSign * 10;
+    var startY = rect.top + 6;
+    cannonEl.classList.remove('is-firing');
+    void cannonEl.offsetWidth;
+    cannonEl.classList.add('is-firing');
+    launchRocket(startX, startY, dirSign * (1.2 + Math.random() * 1.6), -(9.2 + Math.random() * 2.4));
+    launchRocket(startX + dirSign * 6, startY, dirSign * (0.4 + Math.random() * 1.1), -(8.4 + Math.random() * 2.2));
+    setTimeout(function () {
+      if (cannonEl) cannonEl.classList.remove('is-firing');
+    }, 340);
   }
 
   var fwRafId = null;
@@ -854,6 +1045,323 @@
     }
   }
 
+  function clearFlowerCurtain() {
+    if (state.curtainTimer1) {
+      clearTimeout(state.curtainTimer1);
+      state.curtainTimer1 = null;
+    }
+    if (state.curtainTimer2) {
+      clearTimeout(state.curtainTimer2);
+      state.curtainTimer2 = null;
+    }
+    var oldCurtain = document.getElementById('flower-curtain');
+    if (oldCurtain && oldCurtain.parentNode) {
+      oldCurtain.parentNode.removeChild(oldCurtain);
+    }
+  }
+
+  var ffCtx = finaleFloralCanvas ? finaleFloralCanvas.getContext('2d') : null;
+  var ffRafId = null;
+  var tornadoBlossoms = [];
+  var ambientBlossoms = [];
+  var tornadoStart = 0;
+
+  function drawCanvasBlossom(ctx, x, y, r, rot, tiltY, outerColor, innerColor, isRose) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.scale(1, tiltY);
+
+    ctx.fillStyle = outerColor;
+    var petals = isRose ? 6 : 5;
+    for (var i = 0; i < petals; i++) {
+      ctx.save();
+      ctx.rotate((Math.PI * 2 * i) / petals);
+      ctx.beginPath();
+      ctx.ellipse(0, -r * 0.56, r * 0.42, r * 0.54, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    if (isRose) {
+      ctx.fillStyle = innerColor;
+      for (var k = 0; k < 4; k++) {
+        ctx.save();
+        ctx.rotate((Math.PI * 2 * k) / 4 + 0.4);
+        ctx.beginPath();
+        ctx.ellipse(0, -r * 0.28, r * 0.26, r * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle = '#fff1f2';
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.16, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = innerColor;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function startFloralTornado() {
+    if (!finaleFloralCanvas || !ffCtx) return;
+    var w = finaleFloralCanvas.width || window.innerWidth;
+    var h = finaleFloralCanvas.height || window.innerHeight;
+    var maxDist = Math.hypot(w * 0.5, h * 0.5) * 0.96;
+    var pairs = [
+      ['#fb7185', '#fecdd3'],
+      ['#f43f5e', '#fda4af'],
+      ['#f472b6', '#fbcfe8'],
+      ['#e11d48', '#fb7185'],
+      ['#fda4af', '#fef08a'],
+      ['#fecdd3', '#fde047']
+    ];
+    tornadoBlossoms.length = 0;
+    ambientBlossoms.length = 0;
+    tornadoStart = performance.now();
+
+    for (var i = 0; i < 108; i++) {
+      var p = pairs[i % pairs.length];
+      var frac = i / 108;
+      tornadoBlossoms.push({
+        delay: frac * 0.72,
+        baseAngle: frac * Math.PI * 10 + Math.random() * 0.9,
+        spinSpeed: 3.4 + Math.random() * 1.8,
+        maxRadius: (0.14 + Math.pow(Math.random(), 0.75) * 0.86) * maxDist,
+        funnelLift: (-0.42 + Math.random() * 0.84) * h,
+        size: 11 + Math.random() * 13,
+        outer: p[0],
+        inner: p[1],
+        isRose: i % 2 === 0,
+        fallSpeed: (1.05 + Math.random() * 1.55) * 1.5,
+        fallXDrift: (Math.random() - 0.5) * 1.0,
+        swayPhase: Math.random() * Math.PI * 2,
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.09,
+        fallYOffset: 0,
+        fallXOffset: 0,
+        lastX: w * 0.5,
+        lastY: h * 0.52,
+        detached: false
+      });
+    }
+
+    for (var j = 0; j < 38; j++) {
+      var ap = pairs[j % pairs.length];
+      ambientBlossoms.push({
+        x: Math.random() * w,
+        y: -30 - Math.random() * h,
+        vx: (Math.random() - 0.5) * 1.35,
+        vy: (1.0 + Math.random() * 1.35) * 1.5,
+        size: 9 + Math.random() * 10,
+        outer: ap[0],
+        inner: ap[1],
+        isRose: j % 3 === 0,
+        phase: Math.random() * Math.PI * 2,
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.06
+      });
+    }
+
+    if (!ffRafId) ffRafId = requestAnimationFrame(renderFinaleFloral);
+  }
+
+  function renderFinaleFloral(now) {
+    if (state.stage !== 'finale' || !ffCtx) {
+      ffRafId = null;
+      return;
+    }
+    var w = finaleFloralCanvas.width;
+    var h = finaleFloralCanvas.height;
+    var t = Math.max(0, (now - tornadoStart) * 0.001);
+    var cx = w * 0.5;
+    var cy = h * 0.52;
+
+    ffCtx.clearRect(0, 0, w, h);
+
+    // Subtle central vortex glow during center emergence & spin (0 -> 3.6s)
+    if (t < 3.6) {
+      var glowFade = t < 0.7 ? t / 0.7 : Math.max(0, 1 - (t - 1.2) / 2.4);
+      var grad = ffCtx.createRadialGradient(cx, cy, 6, cx, cy, Math.min(w, h) * 0.34);
+      grad.addColorStop(0, 'rgba(253, 164, 175, ' + (0.34 * glowFade).toFixed(3) + ')');
+      grad.addColorStop(1, 'rgba(253, 164, 175, 0)');
+      ffCtx.fillStyle = grad;
+      ffCtx.beginPath();
+      ffCtx.arc(cx, cy, Math.min(w, h) * 0.34, 0, Math.PI * 2);
+      ffCtx.fill();
+    }
+
+    var activeCount = 0;
+    for (var i = 0; i < tornadoBlossoms.length; i++) {
+      var b = tornadoBlossoms[i];
+      var localT = t - b.delay;
+      if (localT <= 0) continue;
+
+      var x, y, scale, alpha;
+      if (localT < 3.4) {
+        // Phase 1 & 2: emerge at center -> tornado swirl -> expand to fill whole screen
+        var expand = easeInOutCubic(Math.min(1, localT / 2.75));
+        var radius = 14 + b.maxRadius * expand;
+        var angle = b.baseAngle + localT * b.spinSpeed * (1.25 - 0.55 * expand);
+        var lift = b.funnelLift * easeInOutCubic(Math.min(1, localT / 2.4));
+        x = cx + Math.cos(angle) * radius;
+        y = cy + Math.sin(angle) * radius * 0.56 + lift * 0.55;
+        b.lastX = x;
+        b.lastY = y;
+        scale = Math.min(1, localT / 0.42);
+        alpha = Math.min(0.92, (localT / 0.35) * 0.92);
+      } else {
+        // Phase 3: swirl settles and blossoms gently rain down across the whole screen
+        var fallT = localT - 3.4;
+        var damp = Math.max(0, 1 - fallT / 1.8);
+        var residualSpin = b.baseAngle + 3.4 * b.spinSpeed * 0.7 + fallT * 0.35 * damp;
+        b.swayPhase += 0.045;
+        b.fallYOffset += b.fallSpeed * (0.45 + 0.55 * Math.min(1, fallT / 1.2));
+        b.fallXOffset += b.fallXDrift + Math.sin(b.swayPhase) * 0.75;
+        x = b.lastX + Math.cos(residualSpin) * 18 * damp + b.fallXOffset;
+        y = b.lastY + b.fallYOffset;
+        scale = 1;
+        alpha = y > h - 80 ? Math.max(0, ((h + 24 - y) / 104) * 0.88) : 0.88;
+      }
+
+      if (y > h + 28 || alpha <= 0.02) continue;
+      activeCount++;
+      b.rot += b.rotSpeed;
+      var tiltY = 0.65 + 0.35 * Math.abs(Math.cos(b.rot * 0.8 + b.swayPhase));
+      ffCtx.globalAlpha = alpha;
+      drawCanvasBlossom(ffCtx, x, y, b.size * scale, b.rot, tiltY, b.outer, b.inner, b.isRose);
+    }
+
+    // Phase 4: continuous gentle blossoms flying/drifting across the whole screen
+    if (t > 2.2) {
+      var ambFade = Math.min(1, (t - 2.2) / 1.6);
+      for (var j = 0; j < ambientBlossoms.length; j++) {
+        var ab = ambientBlossoms[j];
+        ab.phase += 0.036;
+        ab.x += ab.vx + Math.sin(ab.phase) * 0.85;
+        ab.y += ab.vy;
+        ab.rot += ab.rotSpeed;
+        if (ab.y > h + 24) {
+          ab.y = -24;
+          ab.x = Math.random() * w;
+        }
+        if (ab.x < -24) ab.x = w + 20;
+        if (ab.x > w + 24) ab.x = -20;
+        ffCtx.globalAlpha = 0.76 * ambFade;
+        var aTilt = 0.68 + 0.32 * Math.abs(Math.cos(ab.rot + ab.phase));
+        drawCanvasBlossom(ffCtx, ab.x, ab.y, ab.size, ab.rot, aTilt, ab.outer, ab.inner, ab.isRose);
+      }
+    }
+
+    ffCtx.globalAlpha = 1;
+    setTimeout(function () {
+      if (state.stage === 'finale') {
+        ffRafId = requestAnimationFrame(renderFinaleFloral);
+      } else {
+        ffRafId = null;
+      }
+    }, 28);
+  }
+
+  function clearFloralTubes() {
+    tornadoBlossoms.length = 0;
+    ambientBlossoms.length = 0;
+    if (ffCtx && finaleFloralCanvas) {
+      ffCtx.clearRect(0, 0, finaleFloralCanvas.width, finaleFloralCanvas.height);
+    }
+  }
+
+  function clearFinaleExtras() {
+    clearFloralTubes();
+    if (state.cannonAutoTimer) {
+      clearInterval(state.cannonAutoTimer);
+      state.cannonAutoTimer = null;
+    }
+  }
+
+  function makeFlowerSvg(petalColor, centerColor) {
+    return (
+      '<svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">' +
+        '<g fill="' + petalColor + '">' +
+          '<ellipse cx="32" cy="14" rx="10" ry="13"/>' +
+          '<ellipse cx="49" cy="26" rx="10" ry="13" transform="rotate(72 49 26)"/>' +
+          '<ellipse cx="43" cy="46" rx="10" ry="13" transform="rotate(144 43 46)"/>' +
+          '<ellipse cx="21" cy="46" rx="10" ry="13" transform="rotate(216 21 46)"/>' +
+          '<ellipse cx="15" cy="26" rx="10" ry="13" transform="rotate(288 15 26)"/>' +
+        '</g>' +
+        '<circle cx="32" cy="32" r="8" fill="' + centerColor + '"/>' +
+      '</svg>'
+    );
+  }
+
+  function showFlowerCurtainThenLetter() {
+    clearFlowerCurtain();
+    var curtain = document.createElement('div');
+    curtain.id = 'flower-curtain';
+    curtain.className = 'flower-curtain';
+    curtain.setAttribute('aria-hidden', 'true');
+
+    var palette = [
+      ['#ffb8c9', '#fff1f5'],
+      ['#fb7185', '#fef08a'],
+      ['#fda4af', '#fffbeb'],
+      ['#f472b6', '#fce7f3'],
+      ['#fecdd3', '#fde047'],
+      ['#f43f5e', '#ffe4ec']
+    ];
+    var totalFlowers = 68;
+    var html = '<div class="curtain-backdrop"></div><div class="curtain-field">';
+    for (var i = 0; i < totalFlowers; i++) {
+      var pair = palette[i % palette.length];
+      var layer = i % 3; // 0 = foreground crisp, 1 = mid, 2 = soft distant
+      var left = ((i + 0.5) / totalFlowers) * 100 + (Math.random() - 0.5) * 8;
+      var startTop = -6 - Math.random() * 16;
+      var size = layer === 0 ? (3.5 + Math.random() * 1.8) : (layer === 1 ? (2.5 + Math.random() * 1.4) : (1.8 + Math.random() * 1.0));
+      var delay = Math.round((i % 10) * 32 + Math.random() * 180);
+      var dur = Math.round(1650 + Math.random() * 750);
+      var swayX1 = Math.round((Math.random() - 0.5) * 130);
+      var swayX2 = Math.round(swayX1 + (Math.random() - 0.5) * 150);
+      var swayX3 = Math.round(swayX2 + (Math.random() - 0.5) * 120);
+      var fallY = Math.round(108 + Math.random() * 28);
+      var spin = Math.round((Math.random() < 0.5 ? -1 : 1) * (160 + Math.random() * 200));
+      var alpha = layer === 2 ? '0.78' : '0.96';
+      html +=
+        '<span class="curtain-flower layer-' + layer + '" style="' +
+          'left:' + left.toFixed(1) + '%;' +
+          'top:' + startTop.toFixed(1) + '%;' +
+          'width:' + size.toFixed(2) + 'rem;' +
+          'height:' + size.toFixed(2) + 'rem;' +
+          '--d:' + delay + 'ms;' +
+          '--dur:' + dur + 'ms;' +
+          '--sx1:' + swayX1 + 'px;' +
+          '--sx2:' + swayX2 + 'px;' +
+          '--sx3:' + swayX3 + 'px;' +
+          '--fy:' + fallY + 'vh;' +
+          '--spin:' + spin + 'deg;' +
+          '--fa:' + alpha + ';' +
+        '">' +
+          makeFlowerSvg(pair[0], pair[1]) +
+        '</span>';
+    }
+    html += '</div>';
+    curtain.innerHTML = html;
+    document.body.appendChild(curtain);
+
+    state.curtainTimer1 = setTimeout(function () {
+      state.curtainTimer1 = null;
+      clearWaitTimer();
+      state.stage = 'letter';
+      renderStage(true);
+      curtain.classList.add('is-dissolving');
+      state.curtainTimer2 = setTimeout(function () {
+        clearFlowerCurtain();
+      }, 950);
+    }, 2200);
+  }
+
   function startSmoothProgress(footer, durationMs, labelText, btnId, btnText, nextStage) {
     footer.innerHTML =
       '<p class="wait-text">' + labelText + ' <strong class="wait-pct">1%</strong></p>' +
@@ -919,6 +1427,8 @@
       state.transitionTimer = null;
     }
     clearWaitTimer();
+    clearFlowerCurtain();
+    if (nextStage !== 'finale') clearFinaleExtras();
     if (triggerEl && !skipFx) spawnButtonBurst(triggerEl);
 
     if (!skipFx) {
@@ -957,12 +1467,19 @@
     var isFinale = state.stage === 'finale';
     document.body.dataset.stage = state.stage;
     shell.classList.toggle('finale-mode', isFinale);
+    var showAmbientFx = state.stage === 'letter' || state.stage === 'bouquet' || state.stage === 'wishes' || state.stage === 'gallery';
     petalsLayer.classList.toggle(
       'hidden',
-      !(state.stage === 'bouquet' || state.stage === 'wishes' || state.stage === 'gallery' || isFinale)
+      !(showAmbientFx || isFinale)
     );
+    if (ambientGlitterCanvas) {
+      ambientGlitterCanvas.classList.toggle('hidden', !showAmbientFx);
+      if (showAmbientFx) startAmbientGlitterLoop();
+    }
     fireworksCanvas.classList.toggle('hidden', !isFinale);
+    if (finaleFloralCanvas) finaleFloralCanvas.classList.toggle('hidden', !isFinale);
     topActionBtn.textContent = isFinale ? 'Về trang đầu' : 'Trang kết';
+    if (!isFinale) clearFinaleExtras();
 
     document.querySelectorAll('.nav-link').forEach(function (el) {
       el.classList.toggle('active', el.getAttribute('data-nav') === state.stage);
@@ -1026,8 +1543,8 @@
       if (!state.isPlaying && !state.userToggledAudio) startMusic();
       state.transitionTimer = setTimeout(function () {
         state.transitionTimer = null;
-        setStage('letter', null, true);
-      }, 520);
+        showFlowerCurtainThenLetter();
+      }, 420);
     }
     openBtn.addEventListener('click', openEnvelope);
     env.addEventListener('click', openEnvelope);
@@ -1038,16 +1555,33 @@
       return '<p>' + p + '</p>';
     }).join('');
     stageRoot.innerHTML =
-      '<article class="card card-narrow">' +
+      '<article class="card card-narrow wish-decorated-card">' +
+        '<span class="card-corner-spark tl" aria-hidden="true">✿</span>' +
+        '<span class="card-corner-spark br" aria-hidden="true">🌸</span>' +
         '<div class="card-head">' +
           '<span class="meta-label">Ngày Nhà giáo Việt Nam 20 tháng 11</span>' +
           '<span class="meta-label">Trang 1 · Lá thư tri ân</span>' +
         '</div>' +
-        '<h2 class="card-title">Kính gửi cô ' + TEACHER_NAME + ' thân mến,</h2>' +
+        '<h2 class="card-title letter-title-glow">Kính gửi cô ' + TEACHER_NAME + ' thân mến,</h2>' +
         '<div class="letter-body">' + paras + '</div>' +
-        '<p class="letter-sign">— Trọn vẹn yêu thương từ tập thể 45 học sinh của cô —</p>' +
+        '<div class="letter-sign-row">' +
+          '<button type="button" id="letter-love-btn" class="wish-love-chip">💖 Thả tim chúc cô</button>' +
+          '<p class="letter-sign">— Trọn vẹn yêu thương từ tập thể 45 học sinh của cô —</p>' +
+        '</div>' +
         '<div id="letter-footer" class="wait-footer"></div>' +
       '</article>';
+
+    var letterLoveBtn = document.getElementById('letter-love-btn');
+    if (letterLoveBtn) {
+      letterLoveBtn.addEventListener('click', function () {
+        spawnButtonBurst(this);
+        playChime([659.25, 783.99, 987.77], 0.06, 0.035);
+        this.classList.remove('is-loved');
+        void this.offsetWidth;
+        this.classList.add('is-loved');
+        this.textContent = '💖 Đã gửi yêu thương đến cô';
+      });
+    }
 
     startSmoothProgress(
       document.getElementById('letter-footer'),
@@ -1059,33 +1593,233 @@
     );
   }
 
+  function makeGrowingBouquetHtml() {
+    // 18 lush pastel-pink tulips in 3 depth layers (back -> mid -> front)
+    // Buds start low inside/above the envelope waist, glide up each stem, and bloom into a dense dome
+    var tulips = [
+      // Back layer (7 deeper blush tulips peeking behind crown & sides)
+      { bx: 170, by: 342, tx: 54,  ty: 150, tilt: -26, scale: 0.90, d: '0.16s', sd: '0.03s', layer: 'back' },
+      { bx: 176, by: 342, tx: 96,  ty: 96,  tilt: -15, scale: 0.94, d: '0.24s', sd: '0.06s', layer: 'back' },
+      { bx: 184, by: 340, tx: 146, ty: 56,  tilt: -6,  scale: 0.98, d: '0.32s', sd: '0.09s', layer: 'back' },
+      { bx: 190, by: 340, tx: 192, ty: 44,  tilt: 1,   scale: 1.02, d: '0.40s', sd: '0.12s', layer: 'back' },
+      { bx: 196, by: 340, tx: 236, ty: 58,  tilt: 7,   scale: 0.98, d: '0.48s', sd: '0.15s', layer: 'back' },
+      { bx: 204, by: 342, tx: 284, ty: 100, tilt: 16,  scale: 0.94, d: '0.56s', sd: '0.18s', layer: 'back' },
+      { bx: 210, by: 344, tx: 326, ty: 152, tilt: 26,  scale: 0.90, d: '0.64s', sd: '0.21s', layer: 'back' },
+      // Middle layer (6 soft pastel tulips)
+      { bx: 174, by: 342, tx: 76,  ty: 122, tilt: -20, scale: 0.96, d: '0.42s', sd: '0.14s', layer: 'mid' },
+      { bx: 181, by: 342, tx: 118, ty: 112, tilt: -11, scale: 1.00, d: '0.52s', sd: '0.17s', layer: 'mid' },
+      { bx: 188, by: 340, tx: 168, ty: 84,  tilt: -3,  scale: 1.04, d: '0.62s', sd: '0.20s', layer: 'mid' },
+      { bx: 194, by: 340, tx: 216, ty: 82,  tilt: 4,   scale: 1.04, d: '0.72s', sd: '0.23s', layer: 'mid' },
+      { bx: 201, by: 342, tx: 262, ty: 114, tilt: 12,  scale: 1.00, d: '0.82s', sd: '0.26s', layer: 'mid' },
+      { bx: 207, by: 342, tx: 304, ty: 124, tilt: 20,  scale: 0.96, d: '0.92s', sd: '0.29s', layer: 'mid' },
+      // Front overflowing layer (5 luminous cream-pink tulips)
+      { bx: 178, by: 344, tx: 100, ty: 160, tilt: -17, scale: 0.95, d: '0.76s', sd: '0.24s', layer: 'front' },
+      { bx: 185, by: 344, tx: 146, ty: 142, tilt: -8,  scale: 1.00, d: '0.86s', sd: '0.27s', layer: 'front' },
+      { bx: 190, by: 342, tx: 190, ty: 132, tilt: 0,   scale: 1.06, d: '0.96s', sd: '0.30s', layer: 'front' },
+      { bx: 195, by: 344, tx: 234, ty: 144, tilt: 8,   scale: 1.00, d: '1.04s', sd: '0.33s', layer: 'front' },
+      { bx: 202, by: 344, tx: 280, ty: 160, tilt: 17,  scale: 0.95, d: '1.12s', sd: '0.36s', layer: 'front' }
+    ];
+
+    var stemPaths = tulips.map(function (t) {
+      var cx = Math.round((t.bx + t.tx) * 0.5 + (t.tx - 190) * 0.08);
+      var cy = Math.round((t.by + t.ty) * 0.55);
+      var stroke = t.layer === 'back' ? '#49773a' : '#5e914a';
+      var sw = t.layer === 'back' ? '4.4' : '5.0';
+      return (
+        '<path d="M' + t.bx + ' ' + t.by + ' Q' + cx + ' ' + cy + ' ' + t.tx + ' ' + (t.ty + 18) + '" ' +
+          'class="bq-stem" stroke="' + stroke + '" stroke-width="' + sw + '" fill="none" stroke-linecap="round" ' +
+          'pathLength="100" style="--sd:' + t.sd + ';"/>'
+      );
+    }).join('');
+
+    // Realistic layered botanical tulip foliage: long arching lance-shaped blades with subtle folded shading & central vein
+    var backLeaves =
+      '<g class="bq-leaves">' +
+        // Tall left & right dark shaded inner blades behind the flower crown
+        '<path d="M168,312 C128,268 78,218 40,188 C68,188 112,216 154,274 C164,288 172,302 174,312 Z" fill="url(#leafShade)"/>' +
+        '<path d="M174,306 C148,246 116,184 94,138 C118,158 148,214 178,288 Z" fill="url(#leafShade)"/>' +
+        '<path d="M186,302 C176,228 164,162 160,114 C178,144 188,216 192,294 Z" fill="url(#leafShade)"/>' +
+        '<path d="M196,302 C208,228 220,164 226,116 C228,154 218,220 202,296 Z" fill="url(#leafShade)"/>' +
+        '<path d="M206,308 C236,248 268,186 290,142 C276,174 246,232 212,298 Z" fill="url(#leafShade)"/>' +
+        '<path d="M214,312 C254,268 302,220 340,192 C310,202 268,236 220,300 Z" fill="url(#leafShade)"/>' +
+      '</g>';
+
+    var frontLeaves =
+      '<g class="bq-leaves">' +
+        // Left graceful arching tulip leaf with central vein & folded edge
+        '<path d="M164,316 C126,284 74,250 38,236 C56,218 98,226 142,262 C158,276 168,296 170,314 Z" fill="url(#leafLit)" stroke="#3b632f" stroke-width="0.9"/>' +
+        '<path d="M165,312 C126,274 78,242 42,235" fill="none" stroke="#9fd188" stroke-width="1.2" stroke-linecap="round" opacity="0.65"/>' +
+        // Left-mid clasping leaf
+        '<path d="M174,314 C150,270 124,224 108,186 C130,196 156,238 180,298 Z" fill="url(#leafMid)" stroke="#3b632f" stroke-width="0.9"/>' +
+        '<path d="M175,308 C154,264 130,222 111,189" fill="none" stroke="#a6d68f" stroke-width="1.15" stroke-linecap="round" opacity="0.6"/>' +
+        // Center cradling leaf curving gently left
+        '<path d="M186,314 C174,264 166,220 170,182 C184,206 194,254 194,308 Z" fill="url(#leafLit)" stroke="#3b632f" stroke-width="0.85"/>' +
+        '<path d="M188,308 C180,262 174,222 172,186" fill="none" stroke="#a8d892" stroke-width="1.1" stroke-linecap="round" opacity="0.58"/>' +
+        // Right-mid clasping leaf
+        '<path d="M206,314 C230,270 256,226 274,188 C252,198 224,240 200,298 Z" fill="url(#leafMid)" stroke="#3b632f" stroke-width="0.9"/>' +
+        '<path d="M205,308 C226,264 250,224 270,191" fill="none" stroke="#a6d68f" stroke-width="1.15" stroke-linecap="round" opacity="0.6"/>' +
+        // Right graceful arching tulip leaf with central vein & curled tip
+        '<path d="M216,316 C254,284 306,252 342,238 C324,220 282,226 238,262 C222,276 212,296 210,314 Z" fill="url(#leafLit)" stroke="#3b632f" stroke-width="0.9"/>' +
+        '<path d="M215,312 C254,274 302,244 338,237" fill="none" stroke="#9fd188" stroke-width="1.2" stroke-linecap="round" opacity="0.65"/>' +
+        // Small curled foreground leaves peeking right over paper rim
+        '<path d="M172,312 C142,294 112,274 96,260 C118,256 148,268 176,302 Z" fill="url(#leafLit)" stroke="#3b632f" stroke-width="0.85"/>' +
+        '<path d="M208,312 C238,294 268,274 284,260 C262,256 232,268 204,302 Z" fill="url(#leafLit)" stroke="#3b632f" stroke-width="0.85"/>' +
+      '</g>';
+
+    // Delicate white baby's-breath filler blossoms for authentic florist density
+    var fillerSpots = [
+      [78, 182], [116, 198], [156, 178], [224, 178], [264, 198], [302, 184],
+      [134, 134], [190, 102], [248, 134], [86, 148], [294, 150], [166, 206], [214, 206]
+    ];
+    var fillers = '<g class="bq-filler">' + fillerSpots.map(function (pt, idx) {
+      var x = pt[0], y = pt[1];
+      return (
+        '<g transform="translate(' + x + ',' + y + ')" style="--fd:' + (0.65 + idx * 0.05).toFixed(2) + 's">' +
+          '<circle cx="0" cy="-4.5" r="3.2" fill="#fffaf7"/>' +
+          '<circle cx="4.3" cy="-1.2" r="3.1" fill="#fff5f7"/>' +
+          '<circle cx="2.7" cy="3.8" r="3.1" fill="#fffaf7"/>' +
+          '<circle cx="-2.7" cy="3.8" r="3.1" fill="#fff5f7"/>' +
+          '<circle cx="-4.3" cy="-1.2" r="3.1" fill="#fffaf7"/>' +
+          '<circle cx="0" cy="0" r="2.2" fill="#fde68a"/>' +
+        '</g>'
+      );
+    }).join('') + '</g>';
+
+    var tulipNodes = tulips.map(function (t) {
+      var sx = Math.round(t.bx - t.tx);
+      var sy = Math.round(t.by - 28 - t.ty);
+      var sideGrad = t.layer === 'back' ? 'url(#tlpSideBack)' : 'url(#tlpSideFront)';
+      var centerGrad = t.layer === 'back' ? 'url(#tlpCenterBack)' : 'url(#tlpCenterFront)';
+      var strokeCol = t.layer === 'back' ? '#d97a8c' : '#e48798';
+      return (
+        '<g class="bq-rose tlp-wrap" style="--tx:' + t.tx + 'px;--ty:' + t.ty + 'px;--sx:' + sx + 'px;--sy:' + sy + 'px;--tilt:' + t.tilt + 'deg;--ts:' + t.scale + ';--bd:' + t.d + ';">' +
+          '<g class="tlp-mover">' +
+            '<g class="tlp-head">' +
+              '<path d="M-11,-24 C-6,-44 6,-44 11,-24 Z" fill="#f3b6c4" stroke="' + strokeCol + '" stroke-width="1.8"/>' +
+              '<path class="tlp-petal-l" d="M-2,6 C-24,2 -30,-22 -14,-38 C-4,-42 4,-24 0,6 Z" fill="' + sideGrad + '" stroke="' + strokeCol + '" stroke-width="1.9" stroke-linejoin="round"/>' +
+              '<path class="tlp-petal-r" d="M2,6 C24,2 30,-22 14,-38 C4,-42 -4,-24 0,6 Z" fill="' + sideGrad + '" stroke="' + strokeCol + '" stroke-width="1.9" stroke-linejoin="round"/>' +
+              '<path class="tlp-petal-c" d="M0,8 C-18,6 -20,-20 0,-42 C20,-20 18,6 0,8 Z" fill="' + centerGrad + '" stroke="' + strokeCol + '" stroke-width="2.0" stroke-linejoin="round"/>' +
+              '<path d="M-4,-12 C-6,-22 -2,-30 2,-34" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" fill="none" opacity="0.7"/>' +
+            '</g>' +
+          '</g>' +
+        '</g>'
+      );
+    }).join('');
+
+    var sparkles =
+      '<circle cx="46" cy="70" r="2.2" fill="#fff7f9" class="bq-spark" style="--sd:0.2s"/>' +
+      '<circle cx="336" cy="82" r="2.4" fill="#ffe4ec" class="bq-spark" style="--sd:0.9s"/>' +
+      '<circle cx="140" cy="26" r="1.9" fill="#ffffff" class="bq-spark" style="--sd:0.5s"/>' +
+      '<circle cx="294" cy="48" r="2.0" fill="#fde047" class="bq-spark" style="--sd:1.3s"/>' +
+      '<circle cx="38" cy="245" r="1.9" fill="#fff1f5" class="bq-spark" style="--sd:1.6s"/>' +
+      '<circle cx="346" cy="254" r="2.1" fill="#fff1f5" class="bq-spark" style="--sd:0.7s"/>';
+
+    return (
+      '<div class="growing-bouquet" id="growing-bouquet" title="Chạm để xem lại hiệu ứng bó hoa nở">' +
+        '<svg viewBox="0 0 380 435" class="bouquet-svg" role="img" aria-label="Bó hoa tulip hồng phấn dày dặn kiểu sticker từ từ mọc lên và nở hoa tặng cô Ngô Thị Linh">' +
+          '<defs>' +
+            '<linearGradient id="tlpPaperBack" x1="0" y1="0" x2="0" y2="1">' +
+              '<stop offset="0%" stop-color="#ffe5ec"/><stop offset="100%" stop-color="#f2bac8"/>' +
+            '</linearGradient>' +
+            '<linearGradient id="tlpPaperFront" x1="0" y1="0" x2="1" y2="1">' +
+              '<stop offset="0%" stop-color="#fff0f4"/><stop offset="60%" stop-color="#fbd2dc"/><stop offset="100%" stop-color="#eba9b8"/>' +
+            '</linearGradient>' +
+            '<linearGradient id="tlpEnv" x1="0" y1="0" x2="0" y2="1">' +
+              '<stop offset="0%" stop-color="#fffaf2"/><stop offset="100%" stop-color="#f2e3cf"/>' +
+            '</linearGradient>' +
+            '<linearGradient id="tlpSideBack" x1="0" y1="0" x2="0" y2="1">' +
+              '<stop offset="0%" stop-color="#ffd0dc"/><stop offset="100%" stop-color="#f0a8ba"/>' +
+            '</linearGradient>' +
+            '<linearGradient id="tlpCenterBack" x1="0" y1="0" x2="0" y2="1">' +
+              '<stop offset="0%" stop-color="#ffe0e8"/><stop offset="100%" stop-color="#f6b9c8"/>' +
+            '</linearGradient>' +
+            '<linearGradient id="tlpSideFront" x1="0" y1="0" x2="0" y2="1">' +
+              '<stop offset="0%" stop-color="#ffe8ee"/><stop offset="100%" stop-color="#f9c2d0"/>' +
+            '</linearGradient>' +
+            '<linearGradient id="tlpCenterFront" x1="0" y1="0" x2="0" y2="1">' +
+              '<stop offset="0%" stop-color="#fff3f6"/><stop offset="100%" stop-color="#ffd2de"/>' +
+            '</linearGradient>' +
+            '<linearGradient id="leafLit" x1="0" y1="0" x2="1" y2="1">' +
+              '<stop offset="0%" stop-color="#7eb366"/><stop offset="55%" stop-color="#588a46"/><stop offset="100%" stop-color="#375e2b"/>' +
+            '</linearGradient>' +
+            '<linearGradient id="leafMid" x1="0" y1="0" x2="0" y2="1">' +
+              '<stop offset="0%" stop-color="#6ca056"/><stop offset="100%" stop-color="#355b29"/>' +
+            '</linearGradient>' +
+            '<linearGradient id="leafShade" x1="0" y1="0" x2="0" y2="1">' +
+              '<stop offset="0%" stop-color="#4e7c40"/><stop offset="100%" stop-color="#284720"/>' +
+            '</linearGradient>' +
+          '</defs>' +
+          sparkles +
+          // White die-cut sticker halo behind fuller wrapping cone & ribbon tails
+          '<path d="M190,384 L48,248 C36,238 42,220 58,218 L104,208 L276,208 L322,218 C338,220 344,238 332,248 L216,356 L238,386 L220,398 L206,378 L216,426 L164,426 L174,378 L160,398 L142,386 L164,356 Z" ' +
+            'fill="#ffffff" stroke="#ffffff" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/>' +
+          // Back ruffled tissue & wrapping paper fan
+          '<polygon points="190,378 50,242 98,204 190,218 282,204 330,242" fill="url(#tlpPaperBack)" stroke="#d994a6" stroke-width="2.2" stroke-linejoin="round"/>' +
+          '<polygon points="190,374 74,244 190,224 306,244" fill="#fff6f8" opacity="0.72"/>' +
+          // Back shaded tulip foliage fan
+          backLeaves +
+          // Stems drawing upward from waist
+          stemPaths +
+          // 18 pastel-pink tulip buds rising and blooming densely
+          tulipNodes +
+          // Delicate white baby's-breath filler blossoms
+          fillers +
+          // Realistic layered foreground tulip leaves with central veins
+          frontLeaves +
+          // Front pastel-pink paper cone folds
+          '<polygon points="190,384 78,260 148,274 190,322" fill="url(#tlpPaperFront)" stroke="#d994a6" stroke-width="2" stroke-linejoin="round"/>' +
+          '<polygon points="190,384 302,260 232,274 190,322" fill="url(#tlpPaperFront)" stroke="#d994a6" stroke-width="2" stroke-linejoin="round"/>' +
+          '<polygon points="164,370 216,370 226,422 154,422" fill="#fbd2dc" stroke="#d994a6" stroke-width="2" stroke-linejoin="round"/>' +
+          // Cute cream mini envelope tucked at the waist
+          '<g transform="translate(190,334)">' +
+            '<rect x="-34" y="-22" width="68" height="44" rx="5" fill="url(#tlpEnv)" stroke="#c7b299" stroke-width="2"/>' +
+            '<polyline points="-33,-20 0,4 33,-20" fill="none" stroke="#c7b299" stroke-width="1.8" stroke-linejoin="round"/>' +
+            '<polyline points="-32,20 -8,0" fill="none" stroke="#d9c6b0" stroke-width="1.4"/>' +
+            '<polyline points="32,20 8,0" fill="none" stroke="#d9c6b0" stroke-width="1.4"/>' +
+            '<text x="0" y="16" text-anchor="middle" font-size="9.5" font-weight="700" fill="#9f4d62">20 · 11</text>' +
+          '</g>' +
+          // Sage-green ribbon bow tying the bouquet
+          '<g transform="translate(190,362)">' +
+            '<path d="M-4,2 L-34,34 L-18,40 L-2,8 Z" fill="#a8c690" stroke="#769560" stroke-width="1.8" stroke-linejoin="round"/>' +
+            '<path d="M4,2 L34,34 L18,40 L2,8 Z" fill="#a8c690" stroke="#769560" stroke-width="1.8" stroke-linejoin="round"/>' +
+            '<path d="M-2,0 C-36,-18 -46,16 -8,10 Z" fill="#b7d49f" stroke="#769560" stroke-width="1.8" stroke-linejoin="round"/>' +
+            '<path d="M2,0 C36,-18 46,16 8,10 Z" fill="#b7d49f" stroke="#769560" stroke-width="1.8" stroke-linejoin="round"/>' +
+            '<ellipse cx="0" cy="3" rx="9" ry="7" fill="#c7e0b2" stroke="#769560" stroke-width="1.8"/>' +
+          '</g>' +
+        '</svg>' +
+      '</div>'
+    );
+  }
+
   function renderBouquet() {
     stageRoot.innerHTML =
       '<div class="card">' +
         '<div class="split-grid">' +
-          '<div class="media-box">' +
-            '<img id="bouquet-img" src="' + BOUQUET_SRC + '" alt="Bó hoa hồng phấn dâng tặng cô Ngô Thị Linh" referrerpolicy="no-referrer" />' +
+          '<div class="media-box media-bouquet">' +
+            makeGrowingBouquetHtml() +
           '</div>' +
           '<div class="split-content">' +
             '<div>' +
-              '<span class="meta-label">Trang 2 · Bó hoa tươi thắm nhất</span>' +
-              '<h2 class="card-title">Đóa hoa hồng phấn kính dâng Cô ' + TEACHER_NAME + '</h2>' +
-              '<p>Mỗi đóa hồng phấn và cánh mẫu đơn trong bó hoa này tượng trưng cho lòng biết ơn dịu dàng và sự kính trọng sâu sắc của 45 học sinh gửi đến cô trong ngày vui 20/11.</p>' +
-              '<p>Chúc cô luôn tỏa hương sắc, giữ mãi nét dịu hiền và niềm vui trên từng trang giáo án.</p>' +
+              '<span class="meta-label">Trang 2 · Bó hoa tulip phấn</span>' +
+              '<h2 class="card-title">Bó hoa tulip dịu dàng kính dâng Cô ' + TEACHER_NAME + '</h2>' +
+              '<p>Từ chiếc phong bì nhỏ buộc nơ xanh, những nụ tulip hồng phấn khẽ vươn cao theo cành xanh rồi bung nở dịu dàng, kết thành bó hoa tươi thắm gửi tặng cô Ngô Thị Linh ngày 20/11.</p>' +
+              '<p>Chúc cô luôn giữ mãi nét rạng rỡ, an yên và niềm vui trên từng trang giáo án.</p>' +
             '</div>' +
             '<div id="bouquet-footer" class="wait-footer" style="align-items:flex-start;"></div>' +
           '</div>' +
         '</div>' +
       '</div>';
 
-    var img = document.getElementById('bouquet-img');
-    img.addEventListener('error', function () {
-      img.src = FALLBACK_BOUQUET_SVG;
-    });
+    var bouquetBox = document.querySelector('.media-bouquet');
+    if (bouquetBox) {
+      bouquetBox.addEventListener('click', function () {
+        bouquetBox.innerHTML = makeGrowingBouquetHtml();
+      });
+    }
 
     startSmoothProgress(
       document.getElementById('bouquet-footer'),
-      3000,
+      3600,
       'Đang mở phần tiếp theo...',
       'bouquet-next-btn',
       'Tiếp theo →',
@@ -1102,19 +1836,31 @@
     }).join('');
 
     stageRoot.innerHTML =
-      '<div class="card">' +
+      '<div class="card wish-decorated-card">' +
+        '<span class="card-corner-spark tl" aria-hidden="true">✨</span>' +
+        '<span class="card-corner-spark br" aria-hidden="true">🌷</span>' +
         '<div class="card-head">' +
           '<div><span class="meta-label">Trang 3 · Tuyển tập lời chúc 20/11</span><h2 class="card-title">Những lời chúc dịu dàng gửi cô ' + TEACHER_NAME + '</h2></div>' +
           '<div class="tab-group">' + tabs + '</div>' +
         '</div>' +
-        '<div class="split-grid" style="margin-top:1.3rem;">' +
-          '<div class="media-box"><img id="wish-img" src="' + w.img + '" alt="' + w.title + '" referrerpolicy="no-referrer" /></div>' +
+        '<div class="split-grid wish-stage-enter" style="margin-top:1.3rem;">' +
+          '<div class="media-box wish-media-frame">' +
+            '<img id="wish-img" class="wish-img-anim" src="' + w.img + '" alt="' + w.title + '" referrerpolicy="no-referrer" />' +
+            '<span class="wish-media-badge" aria-hidden="true">🌸 ' + w.chapter + '</span>' +
+          '</div>' +
           '<div class="split-content">' +
-            '<div>' +
+            '<div class="wish-quote-panel">' +
+              '<span class="wish-sheen" aria-hidden="true"></span>' +
+              '<div class="wish-float-accents" aria-hidden="true">' +
+                '<span>♥</span><span>✿</span><span>✨</span>' +
+              '</div>' +
               '<span class="meta-label">' + w.chapter + '</span>' +
-              '<h3 class="card-title" style="font-size:1.5rem;">' + w.title + '</h3>' +
-              '<p>“' + w.message + '”</p>' +
-              '<p style="font-style:italic;font-weight:600;color:#be123c;">— ' + w.signature + '</p>' +
+              '<h3 class="card-title wish-title-anim" style="font-size:1.5rem;">' + w.title + '</h3>' +
+              '<blockquote class="wish-quote-text">“' + w.message + '”</blockquote>' +
+              '<div class="wish-sign-bar">' +
+                '<p class="wish-signature">— ' + w.signature + '</p>' +
+                '<button type="button" id="wish-love-btn" class="wish-love-chip">🌸 Thả hoa chúc cô</button>' +
+              '</div>' +
             '</div>' +
             '<div class="gallery-footer">' +
               '<button type="button" id="wish-next-tab" class="btn-secondary">Xem lời chúc khác</button>' +
@@ -1129,13 +1875,26 @@
       wImg.onerror = null;
       wImg.src = w.fallback || FALLBACK_BOUQUET_SVG;
     });
+    var wishLoveBtn = document.getElementById('wish-love-btn');
+    if (wishLoveBtn) {
+      wishLoveBtn.addEventListener('click', function () {
+        spawnButtonBurst(this);
+        playChime([587.33, 739.99, 880], 0.06, 0.035);
+        this.classList.remove('is-loved');
+        void this.offsetWidth;
+        this.classList.add('is-loved');
+        this.textContent = '💖 Ngàn hoa gửi cô';
+      });
+    }
     document.querySelectorAll('[data-wish]').forEach(function (b) {
       b.addEventListener('click', function () {
+        spawnButtonBurst(this);
         state.wishIdx = Number(b.getAttribute('data-wish'));
         renderWishes();
       });
     });
     document.getElementById('wish-next-tab').addEventListener('click', function () {
+      spawnButtonBurst(this);
       state.wishIdx = (state.wishIdx + 1) % WISH_CARDS.length;
       renderWishes();
     });
@@ -1156,25 +1915,25 @@
 
     var bodyHtml =
       state.galleryView === 'swipe'
-        ? '<div class="swipe-frame" id="swipe-frame">' +
+        ? '<div class="swipe-frame wish-stage-enter" id="swipe-frame">' +
             '<div class="swipe-img-wrap">' +
-              '<img id="gallery-main-img" src="' + p.src + '" alt="' + p.title + '" referrerpolicy="no-referrer" />' +
+              '<img id="gallery-main-img" class="wish-img-anim" src="' + p.src + '" alt="' + p.title + '" referrerpolicy="no-referrer" />' +
               '<button type="button" id="prev-photo" class="arrow-btn prev" aria-label="Ảnh trước">‹</button>' +
               '<button type="button" id="next-photo" class="arrow-btn next" aria-label="Ảnh tiếp theo">›</button>' +
             '</div>' +
-            '<div class="photo-caption">' +
+            '<div class="photo-caption wish-caption-glow">' +
               '<span class="meta-label">' + p.subtitle + ' · ' + (state.galleryIdx + 1) + '/' + GALLERY_PHOTOS.length + '</span>' +
               '<h3>' + p.title + '</h3>' +
               '<p class="wish">' + p.wish + '</p>' +
             '</div>' +
           '</div>' +
           '<div class="thumb-strip">' + thumbs + '</div>'
-        : '<div class="gallery-grid">' +
+        : '<div class="gallery-grid wish-stage-enter">' +
             GALLERY_PHOTOS.map(function (item) {
               return (
                 '<article class="gallery-grid-item">' +
                   '<img src="' + item.src + '" alt="' + item.title + '" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + item.fallback + '\'" />' +
-                  '<div class="photo-caption">' +
+                  '<div class="photo-caption wish-caption-glow">' +
                     '<span class="meta-label">' + item.subtitle + '</span>' +
                     '<h3>' + item.title + '</h3>' +
                     '<p class="wish">' + item.wish + '</p>' +
@@ -1185,7 +1944,9 @@
           '</div>';
 
     stageRoot.innerHTML =
-      '<div class="card gallery-stage-card">' +
+      '<div class="card gallery-stage-card wish-decorated-card">' +
+        '<span class="card-corner-spark tl" aria-hidden="true">🌸</span>' +
+        '<span class="card-corner-spark br" aria-hidden="true">✨</span>' +
         '<div class="card-head">' +
           '<div><span class="meta-label">Trang 4 · Phòng trưng bày kỷ niệm</span><h2 class="card-title">Mỗi bức ảnh là một lời chúc gửi cô</h2></div>' +
           '<div class="tab-group">' +
@@ -1218,15 +1979,18 @@
         mImg.src = p.fallback;
       });
       document.getElementById('prev-photo').addEventListener('click', function () {
+        spawnButtonBurst(this);
         state.galleryIdx = (state.galleryIdx - 1 + GALLERY_PHOTOS.length) % GALLERY_PHOTOS.length;
         renderGallery();
       });
       document.getElementById('next-photo').addEventListener('click', function () {
+        spawnButtonBurst(this);
         state.galleryIdx = (state.galleryIdx + 1) % GALLERY_PHOTOS.length;
         renderGallery();
       });
       document.querySelectorAll('[data-gidx]').forEach(function (b) {
         b.addEventListener('click', function () {
+          spawnButtonBurst(this);
           state.galleryIdx = Number(b.getAttribute('data-gidx'));
           renderGallery();
         });
@@ -1268,6 +2032,20 @@
     );
   }
 
+  function spawnSideFloralTubes() {
+    startFloralTornado();
+  }
+
+  function makeCannonHtml(id, sideClass, label) {
+    return (
+      '<button type="button" id="' + id + '" class="cannon-btn ' + sideClass + '" title="' + label + '" aria-label="' + label + '">' +
+        '<span class="cannon-flash" aria-hidden="true"></span>' +
+        '<span class="cannon-barrel" aria-hidden="true"><span class="cannon-rim"></span></span>' +
+        '<span class="cannon-base" aria-hidden="true"></span>' +
+      '</button>'
+    );
+  }
+
   function renderFinale() {
     var allEntries = STUDENTS.map(function (name, i) {
       return { num: i + 1, name: name };
@@ -1297,22 +2075,57 @@
           '</div>' +
           '<div class="finale-col-right">' + renderColumnHtml(rightList, state.creditsPaused) + '</div>' +
         '</div>' +
-        '<div class="finale-actions">' +
-          '<button type="button" id="toggle-scroll-btn" class="btn-dark-pill">' + (state.creditsPaused ? '▶ Tiếp tục trôi tên' : '❚❚ Tạm dừng trôi tên') + '</button>' +
-          '<button type="button" id="burst-fw-btn" class="btn-dark-pill">🎆 Bắn pháo hoa</button>' +
-          '<button type="button" id="restart-btn" class="btn-primary" style="padding:0.6rem 1.35rem;font-size:0.82rem;">↺ Xem lại từ đầu</button>' +
+        '<div class="finale-bottom-bar">' +
+          makeCannonHtml('cannon-left', 'left', 'Ống pháo trái - Bắn pháo hoa') +
+          '<div class="finale-actions">' +
+            '<button type="button" id="toggle-scroll-btn" class="btn-dark-pill">' + (state.creditsPaused ? '▶ Tiếp tục trôi tên' : '❚❚ Tạm dừng trôi tên') + '</button>' +
+            '<button type="button" id="burst-fw-btn" class="btn-dark-pill">🎆 Bắn pháo hoa</button>' +
+            '<button type="button" id="floral-tube-btn" class="btn-dark-pill">🌸 Vòi rồng hoa</button>' +
+            '<button type="button" id="restart-btn" class="btn-primary" style="padding:0.6rem 1.35rem;font-size:0.82rem;">↺ Xem lại từ đầu</button>' +
+          '</div>' +
+          makeCannonHtml('cannon-right', 'right', 'Ống pháo phải - Bắn pháo hoa') +
         '</div>' +
       '</div>';
 
     ensureFinaleEffects();
+    spawnSideFloralTubes();
+
+    var leftCannon = document.getElementById('cannon-left');
+    var rightCannon = document.getElementById('cannon-right');
+
+    setTimeout(function () {
+      fireCannonEl(leftCannon, 1);
+      fireCannonEl(rightCannon, -1);
+    }, 300);
+
+    state.cannonAutoTimer = setInterval(function () {
+      if (state.stage !== 'finale') return;
+      fireCannonEl(leftCannon, 1);
+      setTimeout(function () {
+        fireCannonEl(rightCannon, -1);
+      }, 280);
+    }, 2800);
+
+    leftCannon.addEventListener('click', function () {
+      playChime([659.25, 880.0, 1174.66], 0.05, 0.04);
+      fireCannonEl(leftCannon, 1);
+    });
+    rightCannon.addEventListener('click', function () {
+      playChime([659.25, 880.0, 1174.66], 0.05, 0.04);
+      fireCannonEl(rightCannon, -1);
+    });
 
     document.getElementById('burst-fw-btn').addEventListener('click', function () {
       spawnButtonBurst(this);
       playChime([659.25, 783.99, 1046.5, 1318.5], 0.06, 0.04);
-      launchRocket(window.innerWidth * 0.22);
-      launchRocket(window.innerWidth * 0.5);
-      launchRocket(window.innerWidth * 0.78);
+      fireCannonEl(leftCannon, 1);
+      fireCannonEl(rightCannon, -1);
       spawnFireworkBurst(window.innerWidth * (0.25 + Math.random() * 0.5), window.innerHeight * (0.16 + Math.random() * 0.2), '#fde047');
+    });
+    document.getElementById('floral-tube-btn').addEventListener('click', function () {
+      spawnButtonBurst(this);
+      playChime([523.25, 659.25, 783.99], 0.06, 0.035);
+      spawnSideFloralTubes();
     });
     document.getElementById('toggle-scroll-btn').addEventListener('click', function () {
       state.creditsPaused = !state.creditsPaused;
