@@ -164,6 +164,120 @@
       subtitle: 'Học sinh · Kỷ niệm 20/11',
       src: 'https://cdn.phototourl.com/anon/2026-11-18-6e26e84d-cfa2-4313-b9ad-a7972f0d459e.jpg',
       fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Lưu Thị Mai Thủy',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.phototourl.com/anon/2026-11-18-56b265f3-adbf-427b-a4f2-b6dcf7dc2499.jpg',
+      fallback: FALLBACK_PETALS_SVG
+    },
+    {
+      name: 'Hoàng Đăng Khôi',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.phototourl.com/anon/2026-11-18-6a04e85a-286b-4037-937a-59aff9784061.jpg',
+      fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Dương Chí Bình',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.phototourl.com/anon/2026-11-18-87e6e252-0762-454e-b731-75b6cb345716.jpg',
+      fallback: FALLBACK_PETALS_SVG
+    },
+    {
+      name: 'Nguyễn Quỳnh Trang',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.phototourl.com/anon/2026-11-18-1181e8d0-ffd7-40b6-b85d-a082b2a14d0e.jpg',
+      fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Giáp Thị Huyền Trân',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.phototourl.com/anon/2026-11-18-be9067c8-e224-47a1-ae8d-b40cea00f608.jpg',
+      fallback: FALLBACK_PETALS_SVG
+    },
+    {
+      name: 'Nguyễn Thị Lan Anh',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.phototourl.com/anon/2026-11-18-4269e341-176f-46fe-adc7-f8355073d25d.jpg',
+      fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Phạm Trọng Vương',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.phototourl.com/anon/2026-11-18-73d725eb-8c88-4e4d-886f-0659f8e80f5c.jpg',
+      fallback: FALLBACK_PETALS_SVG
+    },
+    {
+      name: 'Nguyễn Hữu Trọng',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.phototourl.com/anon/2026-11-18-faec6a9c-d1af-430b-83b8-99c21828e5a2.jpg',
+      fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Lưu Ngọc Bảo',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.phototourl.com/anon/2026-11-18-83ed4440-0729-4fd1-b9e3-dc223c3cb5c9.jpg',
+      fallback: FALLBACK_PETALS_SVG
+    },
+    {
+      name: 'Vi Đức Tân',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://prospective-emerald-pfl0ktxi.edgeone.dev/file.png',
+      fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Hoàng Văn Lộc',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://gorgeous-green-3afb7tsk.edgeone.dev/file.png',
+      fallback: FALLBACK_PETALS_SVG
+    },
+    {
+      name: 'Hoàng Trung Nghĩa',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://dusty-fuchsia-chhz8xo8.edgeone.dev/file.png',
+      fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Hoàng Duy Toàn',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/bztj0n0A.jpg',
+      fallback: FALLBACK_PETALS_SVG
+    },
+    {
+      name: 'Vắn Xuân Tùng',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/JSOf1Hzs.jpg',
+      fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Hoàng Anh Minh',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/I7B76UnT.webp',
+      fallback: FALLBACK_PETALS_SVG
+    },
+    {
+      name: 'Mông Thị Châu',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/1cQGWfek5.jpg',
+      fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Bằng Thị Kiều Vi',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/1kGaGLNH.jpg',
+      fallback: FALLBACK_PETALS_SVG
+    },
+    {
+      name: 'Ngô Thị Lưu Ly',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/b5bBuXom.webp',
+      fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Triệu Hữu Thành',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/7V6m2HGv.jpg',
+      fallback: FALLBACK_PETALS_SVG
     }
   ];
 
@@ -174,6 +288,7 @@
     galleryView: 'swipe',
     creditsPaused: false,
     portraitPaused: false,
+    portraitPairIdx: 0,
     curtainActive: false,
     waitTimer: null,
     transitionTimer: null,
@@ -3332,13 +3447,29 @@
   }
 
   function renderPortrait() {
-    var leftItem = PORTRAIT_ITEMS[0];
-    var rightItem = {
-      name: GALLERY_PHOTOS[0].title,
-      subtitle: 'Kỷ niệm 01 · Ảnh 1 album',
-      src: GALLERY_PHOTOS[0].src,
-      fallback: GALLERY_PHOTOS[0].fallback
-    };
+    var totalPairs = Math.max(1, Math.ceil(PORTRAIT_ITEMS.length / 2));
+    var currentPair = ((state.portraitPairIdx % totalPairs) + totalPairs) % totalPairs;
+    state.portraitPairIdx = currentPair;
+
+    function getPairItems(pairIdx) {
+      var leftIdx = (pairIdx * 2) % PORTRAIT_ITEMS.length;
+      var rightIdx = (leftIdx + 1) % PORTRAIT_ITEMS.length;
+      return [PORTRAIT_ITEMS[leftIdx], PORTRAIT_ITEMS[rightIdx]];
+    }
+
+    function preloadPairImages(pairIdx) {
+      var items = getPairItems(pairIdx);
+      items.forEach(function (item) {
+        if (!item || !item.src) return;
+        var img = new Image();
+        img.referrerPolicy = 'no-referrer';
+        img.src = item.src;
+      });
+    }
+
+    var initialPair = getPairItems(currentPair);
+    var leftItem = initialPair[0];
+    var rightItem = initialPair[1];
     var crownItem = {
       name: GALLERY_PHOTOS[1].title,
       src: GALLERY_PHOTOS[1].src,
@@ -3350,17 +3481,17 @@
         '<div class="portrait-hud-header">' +
           '<span class="meta-label">Trang 6 · Trái tim đỏ &amp; Họa ảnh tri ân</span>' +
           '<h2 class="portrait-hud-title">Họa ảnh kỷ niệm gửi Cô ' + TEACHER_NAME + '</h2>' +
-          '<p class="portrait-hud-sub">Kéo nhẹ để xoay trái tim đỏ 360° · Ảnh kỷ niệm tỏa sáng trên đỉnh tim và trôi lần lượt hai bên</p>' +
+          '<p class="portrait-hud-sub">Kéo nhẹ để xoay trái tim đỏ 360° · Ảnh kỷ niệm cố định ở giữa trên đỉnh tim, hai ảnh hai bên trôi đều từ dưới lên</p>' +
         '</div>' +
-        '<div class="portrait-arena ' + (state.portraitPaused ? 'paused' : '') + '" id="portrait-arena" data-yaw="' + phYaw.toFixed(2) + '" data-pitch="' + phPitch.toFixed(2) + '">' +
+        '<div class="portrait-arena ' + (state.portraitPaused ? 'paused' : '') + '" id="portrait-arena" data-pair-index="' + currentPair + '" data-yaw="' + phYaw.toFixed(2) + '" data-pitch="' + phPitch.toFixed(2) + '">' +
           '<div class="portrait-lane side-left">' +
             '<figure class="portrait-side-card" id="portrait-card-left" title="Chạm để tạm dừng hoặc tiếp tục trôi">' +
               '<div class="portrait-photo-box">' +
-                '<img src="' + leftItem.src + '" alt="Họa ảnh ' + leftItem.name + '" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + leftItem.fallback + '\'" />' +
+                '<img id="portrait-img-left" src="' + leftItem.src + '" alt="Họa ảnh ' + leftItem.name + '" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + leftItem.fallback + '\'" />' +
               '</div>' +
               '<figcaption class="portrait-caption">' +
-                '<h3 class="portrait-student-name">' + leftItem.name + '</h3>' +
-                '<p class="portrait-student-sub">' + leftItem.subtitle + '</p>' +
+                '<h3 class="portrait-student-name" id="portrait-name-left">' + leftItem.name + '</h3>' +
+                '<p class="portrait-student-sub" id="portrait-sub-left">' + leftItem.subtitle + '</p>' +
               '</figcaption>' +
             '</figure>' +
           '</div>' +
@@ -3378,28 +3509,95 @@
           '<div class="portrait-lane side-right">' +
             '<figure class="portrait-side-card" id="portrait-card-right" title="Chạm để tạm dừng hoặc tiếp tục trôi">' +
               '<div class="portrait-photo-box">' +
-                '<img src="' + rightItem.src + '" alt="' + rightItem.name + '" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + rightItem.fallback + '\'" />' +
+                '<img id="portrait-img-right" src="' + rightItem.src + '" alt="Họa ảnh ' + rightItem.name + '" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + rightItem.fallback + '\'" />' +
               '</div>' +
               '<figcaption class="portrait-caption">' +
-                '<h3 class="portrait-student-name">' + rightItem.name + '</h3>' +
-                '<p class="portrait-student-sub">' + rightItem.subtitle + '</p>' +
+                '<h3 class="portrait-student-name" id="portrait-name-right">' + rightItem.name + '</h3>' +
+                '<p class="portrait-student-sub" id="portrait-sub-right">' + rightItem.subtitle + '</p>' +
               '</figcaption>' +
             '</figure>' +
           '</div>' +
         '</div>' +
         '<div class="portrait-hud-controls">' +
           '<button type="button" id="portrait-toggle-btn" class="btn-dark-pill">' + (state.portraitPaused ? '▶ Tiếp tục trôi ảnh' : '❚❚ Tạm dừng trôi ảnh') + '</button>' +
+          '<button type="button" id="portrait-next-btn" class="btn-dark-pill">⏭ Cặp ảnh tiếp (' + (currentPair + 1) + '/' + totalPairs + ')</button>' +
           '<button type="button" id="portrait-burst-btn" class="btn-dark-pill">❤️ Xoay &amp; thả tim đỏ</button>' +
           '<button type="button" id="portrait-to-finale-btn" class="btn-primary" style="padding:0.62rem 1.4rem;font-size:0.84rem;">✨ Đến trang kết →</button>' +
         '</div>' +
       '</section>';
 
     var arena = document.getElementById('portrait-arena');
+    var cardLeft = document.getElementById('portrait-card-left');
+    var cardRight = document.getElementById('portrait-card-right');
+    var imgLeft = document.getElementById('portrait-img-left');
+    var imgRight = document.getElementById('portrait-img-right');
+    var nameLeft = document.getElementById('portrait-name-left');
+    var nameRight = document.getElementById('portrait-name-right');
+    var subLeft = document.getElementById('portrait-sub-left');
+    var subRight = document.getElementById('portrait-sub-right');
     var toggleBtn = document.getElementById('portrait-toggle-btn');
+    var nextBtn = document.getElementById('portrait-next-btn');
     var burstBtn = document.getElementById('portrait-burst-btn');
     var crownCard = document.getElementById('portrait-crown-card');
 
     requestAnimationFrame(updatePortraitSlotRect);
+
+    // Preload next pairs silently for seamless swaps
+    preloadPairImages((currentPair + 1) % totalPairs);
+    preloadPairImages((currentPair + 2) % totalPairs);
+
+    function applyPortraitPair(pairIdx, restartAnim) {
+      var normalized = ((pairIdx % totalPairs) + totalPairs) % totalPairs;
+      state.portraitPairIdx = normalized;
+      var pair = getPairItems(normalized);
+      var l = pair[0];
+      var r = pair[1];
+
+      if (arena) arena.setAttribute('data-pair-index', String(normalized));
+
+      if (imgLeft) {
+        imgLeft.onerror = function () {
+          this.onerror = null;
+          this.src = l.fallback;
+        };
+        imgLeft.alt = 'Họa ảnh ' + l.name;
+        imgLeft.src = l.src;
+      }
+      if (nameLeft) nameLeft.textContent = l.name;
+      if (subLeft) subLeft.textContent = l.subtitle;
+
+      if (imgRight) {
+        imgRight.onerror = function () {
+          this.onerror = null;
+          this.src = r.fallback;
+        };
+        imgRight.alt = 'Họa ảnh ' + r.name;
+        imgRight.src = r.src;
+      }
+      if (nameRight) nameRight.textContent = r.name;
+      if (subRight) subRight.textContent = r.subtitle;
+
+      if (nextBtn) {
+        nextBtn.textContent = '⏭ Cặp ảnh tiếp (' + (normalized + 1) + '/' + totalPairs + ')';
+      }
+
+      if (restartAnim && cardLeft && cardRight) {
+        cardLeft.style.animation = 'none';
+        cardRight.style.animation = 'none';
+        void cardLeft.offsetWidth;
+        cardLeft.style.animation = '';
+        cardRight.style.animation = '';
+      }
+
+      preloadPairImages((normalized + 1) % totalPairs);
+      preloadPairImages((normalized + 2) % totalPairs);
+    }
+
+    if (cardLeft) {
+      cardLeft.addEventListener('animationiteration', function () {
+        applyPortraitPair(state.portraitPairIdx + 1, false);
+      });
+    }
 
     function syncPortraitPauseUI() {
       if (arena) arena.classList.toggle('paused', state.portraitPaused);
@@ -3469,6 +3667,11 @@
     toggleBtn.addEventListener('click', function () {
       state.portraitPaused = !state.portraitPaused;
       syncPortraitPauseUI();
+    });
+
+    nextBtn.addEventListener('click', function () {
+      playChime([659.25, 880.0], 0.04, 0.025);
+      applyPortraitPair(state.portraitPairIdx + 1, true);
     });
 
     burstBtn.addEventListener('click', function () {
