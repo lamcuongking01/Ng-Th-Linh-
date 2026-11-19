@@ -1,5 +1,7 @@
 :root {
   --font-display: 'Playfair Display', Georgia, serif;
+  --font-calligraphy: 'Dancing Script', 'Playfair Display', Georgia, cursive;
+  --font-letter: 'Lora', 'Playfair Display', Georgia, serif;
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --rose-950: #4c0519;
   --rose-900: #881337;
@@ -669,19 +671,40 @@ button {
   color: var(--rose-950);
 }
 
+.letter-body {
+  margin-top: 0.9rem;
+  padding: 0.75rem 1.05rem 1.05rem;
+  border-radius: 1rem;
+  border: 1px solid #ffe0ea;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 252, 253, 0) 0px,
+      rgba(255, 252, 253, 0) 31px,
+      rgba(244, 63, 94, 0.08) 32px
+    ),
+    linear-gradient(180deg, #fffdfd 0%, #fff6f9 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
 .letter-body p {
-  margin: 1rem 0 0;
-  font-size: 0.99rem;
-  line-height: 1.75;
-  color: var(--rose-950);
+  margin: 32px 0 0;
+  font-family: var(--font-letter);
+  font-size: 1.04rem;
+  line-height: 32px;
+  color: #4c0519;
+}
+
+.letter-body p:first-child {
+  margin-top: 0;
 }
 
 .letter-sign {
   margin: 1.5rem 0 0;
   text-align: right;
-  font-family: var(--font-display);
-  font-style: italic;
-  font-weight: 600;
+  font-family: var(--font-calligraphy);
+  font-size: clamp(1.25rem, 2.2vw, 1.56rem);
+  font-weight: 700;
   color: var(--rose-700);
 }
 
@@ -1027,6 +1050,11 @@ button {
   position: relative;
   display: inline-block;
   padding-bottom: 0.35rem;
+  font-family: var(--font-calligraphy);
+  font-size: clamp(1.78rem, 3.3vw, 2.48rem);
+  font-weight: 700;
+  line-height: 1.28;
+  color: #6b0f2b;
 }
 
 .letter-title-glow::after {
@@ -1148,15 +1176,20 @@ button {
 }
 
 .wish-title-anim {
-  animation: softRise 0.52s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+  font-family: var(--font-calligraphy);
+  font-size: clamp(1.62rem, 2.8vw, 2.12rem);
+  font-weight: 700;
+  line-height: 1.28;
+  color: #6b0f2b;
 }
 
 .wish-quote-text {
   margin: 0.85rem 0 0;
-  font-size: 1rem;
-  line-height: 1.75;
+  font-family: var(--font-letter);
+  font-style: italic;
+  font-size: 1.06rem;
+  line-height: 1.85;
   color: var(--rose-950);
-  animation: softRise 0.58s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
 }
 
 .wish-sign-bar {
@@ -1170,8 +1203,9 @@ button {
 
 .wish-signature {
   margin: 0;
-  font-style: italic;
-  font-weight: 600;
+  font-family: var(--font-calligraphy);
+  font-size: clamp(1.18rem, 2vw, 1.42rem);
+  font-weight: 700;
   color: #be123c;
 }
 
@@ -1304,14 +1338,19 @@ button {
 
 .photo-caption h3 {
   margin: 0.25rem 0 0;
-  font-size: 1.2rem;
-  color: var(--rose-950);
+  font-family: var(--font-calligraphy);
+  font-size: clamp(1.45rem, 2.5vw, 1.85rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: #6b0f2b;
 }
 
 .photo-caption p.wish {
   margin: 0.45rem 0 0;
-  font-size: 0.93rem;
-  line-height: 1.6;
+  font-family: var(--font-letter);
+  font-style: italic;
+  font-size: 1.01rem;
+  line-height: 1.75;
   color: var(--rose-950);
 }
 
@@ -1412,8 +1451,10 @@ button {
 
 .finale-wish-banner p {
   margin: 0.4rem 0 0;
-  font-size: 0.96rem;
-  line-height: 1.6;
+  font-family: var(--font-letter);
+  font-style: italic;
+  font-size: 1.05rem;
+  line-height: 1.72;
   color: #ffffff;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
 }
@@ -2544,6 +2585,140 @@ button {
     transform: translate3d(0, -5px, 0);
   }
 }
+
+/* Bouquet & Calligraphy Handwriting Reveal */
+.bouquet-wish-title {
+  font-family: var(--font-calligraphy);
+  font-size: clamp(1.65rem, 2.8vw, 2.24rem);
+  font-weight: 700;
+  line-height: 1.26;
+  color: #6b0f2b;
+}
+
+.bouquet-wish-body p {
+  font-family: var(--font-letter);
+  font-size: 1.03rem;
+  line-height: 1.82;
+  color: var(--rose-950);
+}
+
+.ink-target {
+  font-variant-ligatures: normal;
+}
+
+.ink-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.ink-char {
+  display: inline;
+  opacity: 0;
+  transition: opacity 0.18s ease-out, text-shadow 0.28s ease-out;
+}
+
+.ink-char.written {
+  opacity: 1;
+}
+
+.ink-char.ink-fresh {
+  text-shadow: 0 0 10px rgba(244, 63, 94, 0.55), 0 0 4px rgba(251, 191, 36, 0.45);
+}
+
+/* Floating Fountain Pen Animation Overlay */
+.handwriting-pen {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 72px;
+  height: 72px;
+  pointer-events: none;
+  z-index: 80;
+  transform-origin: 3.4px 67.7px;
+  will-change: transform, opacity;
+  filter: drop-shadow(0 8px 14px rgba(76, 5, 25, 0.34));
+  opacity: 0;
+}
+
+.handwriting-pen svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.pen-nib-glow {
+  position: absolute;
+  left: 0;
+  top: 64px;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #fffbeb 0%, #fb7185 55%, rgba(225, 29, 72, 0) 100%);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.9), 0 0 14px rgba(244, 63, 94, 0.75);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+
+.handwriting-pen.is-writing .pen-nib-glow {
+  opacity: 1;
+}
+
+.pen-spark-fleck {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  margin-top: -3px;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 79;
+  background: radial-gradient(circle, #fef08a 0%, #fb7185 65%, transparent 100%);
+  box-shadow: 0 0 6px rgba(253, 224, 71, 0.85);
+  animation: penSparkFade 0.55s ease-out forwards;
+}
+
+@keyframes penSparkFade {
+  0% {
+    opacity: 0.95;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--sx, 6px), var(--sy, -14px), 0) scale(0.2);
+  }
+}
+
+@media (max-width: 639px) {
+  .handwriting-pen {
+    width: 58px;
+    height: 58px;
+    transform-origin: 2.8px 54.5px;
+  }
+  .pen-nib-glow {
+    top: 51px;
+  }
+  .letter-body {
+    padding: 0.65rem 0.8rem 0.85rem;
+    background:
+      repeating-linear-gradient(
+        180deg,
+        rgba(255, 252, 253, 0) 0px,
+        rgba(255, 252, 253, 0) 27px,
+        rgba(244, 63, 94, 0.08) 28px
+      ),
+      linear-gradient(180deg, #fffdfd 0%, #fff6f9 100%);
+  }
+  .letter-body p {
+    margin-top: 28px;
+    font-size: 0.96rem;
+    line-height: 28px;
+  }
+}
+
 
 
 

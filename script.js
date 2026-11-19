@@ -302,6 +302,7 @@
     portraitPaused: false,
     portraitPairIdx: 0,
     curtainActive: false,
+    handwritingCancel: null,
     waitTimer: null,
     transitionTimer: null,
     audioCtx: null,
@@ -2691,11 +2692,325 @@
     }
   }
 
+  function cancelHandwriting() {
+    if (typeof state.handwritingCancel === 'function') {
+      var fn = state.handwritingCancel;
+      state.handwritingCancel = null;
+      fn();
+    }
+    document.querySelectorAll('.handwriting-pen').forEach(function (el) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+  }
+
+  function spawnPenSparkle(x, y, burst) {
+    var dot = document.createElement('span');
+    dot.className = 'pen-spark-fleck';
+    dot.style.left = x.toFixed(1) + 'px';
+    dot.style.top = y.toFixed(1) + 'px';
+    var spread = burst ? 26 : 14;
+    dot.style.setProperty('--sx', ((Math.random() - 0.5) * spread).toFixed(1) + 'px');
+    dot.style.setProperty('--sy', (-6 - Math.random() * spread).toFixed(1) + 'px');
+    document.body.appendChild(dot);
+    setTimeout(function () {
+      if (dot.parentNode) dot.parentNode.removeChild(dot);
+    }, 560);
+  }
+
+  function createPenOverlay() {
+    var pen = document.createElement('div');
+    pen.className = 'handwriting-pen';
+    pen.setAttribute('aria-hidden', 'true');
+    pen.innerHTML =
+      '<span class="pen-nib-glow"></span>' +
+      '<svg viewBox="0 0 84 84" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+        '<defs>' +
+          '<linearGradient id="penBarrelGrad" x1="18" y1="66" x2="78" y2="6" gradientUnits="userSpaceOnUse">' +
+            '<stop offset="0%" stop-color="#881337"/>' +
+            '<stop offset="45%" stop-color="#e11d48"/>' +
+            '<stop offset="78%" stop-color="#fb7185"/>' +
+            '<stop offset="100%" stop-color="#9f1239"/>' +
+          '</linearGradient>' +
+          '<linearGradient id="penGoldGrad" x1="4" y1="79" x2="26" y2="57" gradientUnits="userSpaceOnUse">' +
+            '<stop offset="0%" stop-color="#fef08a"/>' +
+            '<stop offset="45%" stop-color="#f59e0b"/>' +
+            '<stop offset="100%" stop-color="#b45309"/>' +
+          '</linearGradient>' +
+          '<linearGradient id="penRoseGold" x1="20" y1="64" x2="78" y2="6" gradientUnits="userSpaceOnUse">' +
+            '<stop offset="0%" stop-color="#fde68a"/>' +
+            '<stop offset="50%" stop-color="#f9a8d4"/>' +
+            '<stop offset="100%" stop-color="#d97706"/>' +
+          '</linearGradient>' +
+        '</defs>' +
+        // Gold calligraphic nib whose sharp point sits at exact (4, 79)
+        '<path d="M4 79 L11.5 60.5 L21 58 L26 63 L23.5 72.5 Z" fill="url(#penGoldGrad)" stroke="#78350f" stroke-width="1.2" stroke-linejoin="round"/>' +
+        '<line x1="4.8" y1="78.2" x2="17" y2="66" stroke="#78350f" stroke-width="1.15" stroke-linecap="round"/>' +
+        '<circle cx="17.8" cy="65.2" r="1.65" fill="#78350f"/>' +
+        // Rose-gold grip collar
+        '<path d="M20.5 57.5 L26.5 63.5 L31.5 58.5 L25.5 52.5 Z" fill="url(#penRoseGold)" stroke="#9f1239" stroke-width="1"/>' +
+        // Crimson lacquered pen barrel
+        '<path d="M25.5 52.5 L66.5 11.5 C70.5 7.5 76 8 78.5 10.5 C81 13 81.5 18.5 77.5 22.5 L36.5 63.5 Z" fill="url(#penBarrelGrad)" stroke="#590d22" stroke-width="1.3" stroke-linejoin="round"/>' +
+        // Glossy specular highlight along barrel
+        '<path d="M31 50.5 L67.5 14" stroke="rgba(255,255,255,0.62)" stroke-width="2.1" stroke-linecap="round"/>' +
+        // Rose-gold ring & pocket clip
+        '<path d="M39 40 L49.5 50.5" stroke="url(#penRoseGold)" stroke-width="2.6" stroke-linecap="round"/>' +
+        '<path d="M55 24 L70.5 14.5 C72.5 13.5 74.5 15 73 17 L60 28.5" stroke="url(#penRoseGold)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>' +
+      '</svg>';
+    document.body.appendChild(pen);
+    return pen;
+  }
+
+  function prepareInkTarget(el, charsOut, extraBreakWeight) {
+    if (!el) return;
+    var raw = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return;
+    el.classList.add('ink-target');
+    el.textContent = '';
+
+    var tokens = raw.split(/(\s+)/);
+    var firstAddedIndex = charsOut.length;
+    for (var i = 0; i < tokens.length; i++) {
+      var tok = tokens[i];
+      if (!tok) continue;
+      if (/^\s+$/.test(tok)) {
+        el.appendChild(document.createTextNode(' '));
+      } else {
+        var wordSpan = document.createElement('span');
+        wordSpan.className = 'ink-word';
+        var letters = Array.from(tok);
+        for (var j = 0; j < letters.length; j++) {
+          var ch = letters[j];
+          var charSpan = document.createElement('span');
+          charSpan.className = 'ink-char';
+          charSpan.textContent = ch;
+          wordSpan.appendChild(charSpan);
+
+          var w = 1;
+          if (/[,;:]/.test(ch)) w = 2.0;
+          else if (/[.!?—”]/.test(ch)) w = 3.2;
+          charsOut.push({ el: charSpan, weight: w });
+        }
+        el.appendChild(wordSpan);
+      }
+    }
+    if (charsOut.length > firstAddedIndex && extraBreakWeight) {
+      charsOut[charsOut.length - 1].weight += extraBreakWeight;
+    }
+  }
+
+  function startHandwritingSequence(elements, options) {
+    cancelHandwriting();
+    var opts = options || {};
+    var writeDuration = opts.writeDuration || 3600;
+    var flyDuration = opts.flyDuration || 680;
+    var startDelay = opts.startDelay || 120;
+
+    var chars = [];
+    for (var i = 0; i < elements.length; i++) {
+      prepareInkTarget(elements[i], chars, i < elements.length - 1 ? 4.5 : 0);
+    }
+    if (!chars.length) return;
+
+    var cumWeights = new Array(chars.length);
+    var totalWeight = 0;
+    for (var k = 0; k < chars.length; k++) {
+      totalWeight += chars[k].weight;
+      cumWeights[k] = totalWeight;
+    }
+
+    var pen = createPenOverlay();
+    var cancelled = false;
+    var completed = false;
+    var rafId = null;
+    var delayTimer = null;
+    var fadeTimer = null;
+    var lastRevealed = -1;
+    var lastSparkleTime = 0;
+
+    var penRect = pen.getBoundingClientRect();
+    var penW = penRect.width || 84;
+    var penH = penRect.height || 84;
+    var tipOffsetX = penW * (4 / 84);
+    var tipOffsetY = penH * (79 / 84);
+
+    var firstRect = chars[0].el.getBoundingClientRect();
+    var startX = Math.min(window.innerWidth - 48, Math.max(64, firstRect.left + window.innerWidth * 0.18));
+    var startY = window.innerHeight + 36;
+    var curX = startX;
+    var curY = startY;
+    var goalX = firstRect.left + Math.max(2, firstRect.width * 0.35);
+    var goalY = firstRect.top + firstRect.height * 0.74;
+
+    function setPenTransform(x, y, deg, scale, opacity) {
+      pen.style.opacity = String(opacity);
+      pen.style.transform =
+        'translate3d(' + (x - tipOffsetX).toFixed(1) + 'px, ' + (y - tipOffsetY).toFixed(1) + 'px, 0) ' +
+        'rotate(' + deg.toFixed(2) + 'deg) scale(' + scale.toFixed(3) + ')';
+    }
+
+    function revealThrough(idx) {
+      for (var c = lastRevealed + 1; c <= idx && c < chars.length; c++) {
+        var span = chars[c].el;
+        span.classList.add('written', 'ink-fresh');
+        setTimeout((function (node) {
+          return function () { node.classList.remove('ink-fresh'); };
+        })(span), 260);
+      }
+      lastRevealed = Math.max(lastRevealed, idx);
+    }
+
+    function liftAndDismissPen(fromX, fromY) {
+      if (completed) return;
+      completed = true;
+      pen.classList.remove('is-writing');
+      spawnPenSparkle(fromX, fromY, true);
+      var liftStart = performance.now();
+      var liftDur = 440;
+      function liftTick(now) {
+        if (cancelled) return;
+        var u = Math.min(1, (now - liftStart) / liftDur);
+        var e = easeInOutCubic(u);
+        setPenTransform(
+          fromX + e * 30,
+          fromY - e * 36,
+          e * 16,
+          1 - e * 0.16,
+          Math.max(0, 1 - u)
+        );
+        if (u < 1) {
+          rafId = requestAnimationFrame(liftTick);
+        } else {
+          if (pen.parentNode) pen.parentNode.removeChild(pen);
+          if (state.handwritingCancel === cancelThis) state.handwritingCancel = null;
+        }
+      }
+      rafId = requestAnimationFrame(liftTick);
+    }
+
+    function finishImmediately() {
+      if (cancelled || completed) return;
+      if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; }
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      revealThrough(chars.length - 1);
+      liftAndDismissPen(curX, curY);
+    }
+
+    function cancelThis() {
+      cancelled = true;
+      if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; }
+      if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      if (pen.parentNode) pen.parentNode.removeChild(pen);
+    }
+
+    state.handwritingCancel = cancelThis;
+
+    // Allow clicking directly on any writing surface (not buttons) to finish text immediately
+    for (var t = 0; t < elements.length; t++) {
+      if (elements[t]) {
+        elements[t].addEventListener('click', function (ev) {
+          if (!ev.target.closest('button')) finishImmediately();
+        });
+      }
+    }
+
+    setPenTransform(startX, startY, 24, 1.18, 0);
+
+    delayTimer = setTimeout(function () {
+      if (cancelled) return;
+      var animStart = performance.now();
+      var lastMeasuredIdx = -1;
+
+      function tick(now) {
+        if (cancelled || completed) return;
+        var elapsed = now - animStart;
+
+        if (elapsed < flyDuration) {
+          // Phase 1: Swoop pen up from bottom to exact first character
+          var u = Math.min(1, elapsed / flyDuration);
+          var e = easeInOutCubic(u);
+          var fr = chars[0].el.getBoundingClientRect();
+          if (fr.width > 0 || fr.height > 0) {
+            goalX = fr.left + Math.max(2, fr.width * 0.35);
+            goalY = fr.top + fr.height * 0.74;
+          }
+          var ctrlX = (startX + goalX) * 0.5 + 88;
+          var ctrlY = Math.min(startY, goalY) - 42;
+          curX = (1 - e) * (1 - e) * startX + 2 * (1 - e) * e * ctrlX + e * e * goalX;
+          curY = (1 - e) * (1 - e) * startY + 2 * (1 - e) * e * ctrlY + e * e * goalY;
+          var flyOpacity = Math.min(1, u * 4.5);
+          setPenTransform(curX, curY, 22 * (1 - e) - 2 * e, 1.18 - 0.18 * e, flyOpacity);
+          if (now - lastSparkleTime > 95) {
+            lastSparkleTime = now;
+            spawnPenSparkle(curX, curY, false);
+          }
+          rafId = requestAnimationFrame(tick);
+          return;
+        }
+
+        // Phase 2: Write characters gradually synced with nib
+        pen.classList.add('is-writing');
+        var writeElapsed = elapsed - flyDuration;
+        var ratio = Math.min(1, writeElapsed / writeDuration);
+        var targetWeight = ratio * totalWeight;
+
+        // Binary search active character index
+        var lo = 0;
+        var hi = chars.length - 1;
+        while (lo < hi) {
+          var mid = (lo + hi) >> 1;
+          if (cumWeights[mid] < targetWeight) lo = mid + 1;
+          else hi = mid;
+        }
+        var targetIdx = ratio >= 1 ? chars.length - 1 : lo;
+
+        if (targetIdx !== lastRevealed) {
+          revealThrough(targetIdx);
+        }
+
+        if (targetIdx !== lastMeasuredIdx) {
+          lastMeasuredIdx = targetIdx;
+          var rect = chars[targetIdx].el.getBoundingClientRect();
+          if (rect.width > 0 || rect.height > 0) {
+            goalX = rect.right;
+            goalY = rect.top + rect.height * 0.74;
+          }
+        }
+
+        var jumpDist = Math.hypot(goalX - curX, goalY - curY);
+        var lerpFactor = jumpDist > 42 ? 0.28 : 0.45;
+        curX += (goalX - curX) * lerpFactor;
+        curY += (goalY - curY) * lerpFactor;
+
+        var strokeWobbleY = Math.sin(now * 0.025) * 2.4;
+        var strokeTilt = Math.sin(now * 0.019) * 5.2 - 3;
+        setPenTransform(curX, curY + strokeWobbleY, strokeTilt, 1, 1);
+
+        if (now - lastSparkleTime > 170) {
+          lastSparkleTime = now;
+          spawnPenSparkle(curX, curY, false);
+        }
+
+        if (ratio < 1) {
+          rafId = requestAnimationFrame(tick);
+        } else {
+          revealThrough(chars.length - 1);
+          fadeTimer = setTimeout(function () {
+            liftAndDismissPen(curX, curY);
+          }, 120);
+        }
+      }
+
+      rafId = requestAnimationFrame(tick);
+    }, startDelay);
+  }
+
   function setStage(nextStage, triggerEl, skipFx) {
     if (state.transitionTimer) {
       clearTimeout(state.transitionTimer);
       state.transitionTimer = null;
     }
+    cancelHandwriting();
     clearWaitTimer();
     clearFlowerCurtain();
     if (nextStage !== 'finale') clearFinaleExtras();
@@ -2912,12 +3227,21 @@
 
     startSmoothProgress(
       document.getElementById('letter-footer'),
-      5000,
-      'Đang mở phần tiếp theo...',
+      6300,
+      'Đang viết thư & mở phần tiếp theo...',
       'letter-next-btn',
       'Tiếp tục →',
       'bouquet'
     );
+
+    var letterTargets = [document.querySelector('.letter-title-glow')]
+      .concat(Array.prototype.slice.call(document.querySelectorAll('.letter-body p')))
+      .concat([document.querySelector('.letter-sign')]);
+    startHandwritingSequence(letterTargets, {
+      startDelay: 180,
+      flyDuration: 680,
+      writeDuration: 5400
+    });
   }
 
   function makeGrowingBouquetHtml() {
@@ -3155,9 +3479,9 @@
             makeGrowingBouquetHtml() +
           '</div>' +
           '<div class="split-content">' +
-            '<div>' +
+            '<div class="bouquet-wish-body">' +
               '<span class="meta-label">Trang 2 · Bó hoa tulip phấn</span>' +
-              '<h2 class="card-title">Bó hoa tulip dịu dàng kính dâng Cô ' + TEACHER_NAME + '</h2>' +
+              '<h2 class="card-title bouquet-wish-title">Bó hoa tulip dịu dàng kính dâng Cô ' + TEACHER_NAME + '</h2>' +
               '<p>Từ chiếc phong bì nhỏ buộc nơ xanh, những nụ tulip hồng phấn khẽ vươn cao theo cành xanh rồi bung nở dịu dàng, kết thành bó hoa tươi thắm gửi tặng cô Ngô Thị Linh ngày 20/11.</p>' +
               '<p>Chúc cô luôn giữ mãi nét rạng rỡ, an yên và niềm vui trên từng trang giáo án.</p>' +
             '</div>' +
@@ -3175,12 +3499,20 @@
 
     startSmoothProgress(
       document.getElementById('bouquet-footer'),
-      3600,
+      3700,
       'Đang mở phần tiếp theo...',
       'bouquet-next-btn',
       'Tiếp theo →',
       'wishes'
     );
+
+    var bouquetTargets = [document.querySelector('.bouquet-wish-title')]
+      .concat(Array.prototype.slice.call(document.querySelectorAll('.bouquet-wish-body p')));
+    startHandwritingSequence(bouquetTargets, {
+      startDelay: 160,
+      flyDuration: 640,
+      writeDuration: 2800
+    });
   }
 
   function renderWishes() {
@@ -3256,6 +3588,17 @@
     });
     document.getElementById('to-gallery-btn').addEventListener('click', function () {
       setStage('gallery', this);
+    });
+
+    var wishTargets = [
+      document.querySelector('.wish-title-anim'),
+      document.querySelector('.wish-quote-text'),
+      document.querySelector('.wish-signature')
+    ];
+    startHandwritingSequence(wishTargets, {
+      startDelay: 140,
+      flyDuration: 640,
+      writeDuration: 3100
     });
   }
 
@@ -3366,6 +3709,15 @@
         }
       });
     }
+
+    var galleryTargets = Array.prototype.slice.call(
+      document.querySelectorAll('.photo-caption h3, .photo-caption p.wish')
+    );
+    startHandwritingSequence(galleryTargets, {
+      startDelay: 150,
+      flyDuration: 600,
+      writeDuration: state.galleryView === 'swipe' ? 2200 : 2800
+    });
   }
 
   function renderColumnHtml(items, paused) {
@@ -3799,6 +4151,15 @@
     document.getElementById('restart-btn').addEventListener('click', function () {
       setStage('intro', this);
     });
+
+    var finaleBannerWish = document.querySelector('.finale-wish-banner p');
+    if (finaleBannerWish) {
+      startHandwritingSequence([finaleBannerWish], {
+        startDelay: 180,
+        flyDuration: 620,
+        writeDuration: 2300
+      });
+    }
   }
 
   // --- Top bar wiring ---
