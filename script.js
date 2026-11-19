@@ -573,9 +573,32 @@
   var HEART_PALETTE_LIGHT = ['#9f1239', '#be123c', '#e11d48', '#db2777', '#c026d3', '#d97706'];
   var HEART_PALETTE_FINALE = ['#fb7185', '#f43f5e', '#f472b6', '#fda4af', '#fde047', '#ffffff'];
   var heartBuckets = HEART_PALETTE_LIGHT.map(function () { return []; });
-  var heartModeStart = performance.now();
+  var heartModeStart = performance.now() - 8200;
   var heartLastMode = 'ambient';
   var heartRafId = null;
+  var heartLightSprites = null;
+  var heartFinaleSprites = null;
+
+  function buildHeartDotSprites(palette) {
+    return palette.map(function (hex) {
+      var sz = 20;
+      var c = document.createElement('canvas');
+      c.width = sz;
+      c.height = sz;
+      var g = c.getContext('2d');
+      var cx = sz * 0.5;
+      var grad = g.createRadialGradient(cx, cx, 0, cx, cx, cx);
+      grad.addColorStop(0, hex);
+      grad.addColorStop(0.42, hex + 'cc');
+      grad.addColorStop(0.76, hex + '3a');
+      grad.addColorStop(1, hex + '00');
+      g.fillStyle = grad;
+      g.beginPath();
+      g.arc(cx, cx, cx, 0, Math.PI * 2);
+      g.fill();
+      return c;
+    });
+  }
 
   (function buildHeartParticles() {
     var seed = 20112026;
@@ -583,7 +606,7 @@
       seed = (seed * 1664525 + 1013904223) >>> 0;
       return seed / 4294967296;
     }
-    for (var i = 0; i < 950; i++) {
+    for (var i = 0; i < 420; i++) {
       var u = rand() * Math.PI * 2;
       var sinU = Math.sin(u);
       var cosU = Math.cos(u);
@@ -603,7 +626,7 @@
         sx: rad * Math.sin(phi) * Math.cos(theta),
         sy: rad * Math.cos(phi) * 0.85,
         sz: rad * Math.sin(phi) * Math.sin(theta),
-        size: 1.8 + rand() * 2.1,
+        size: 2.1 + rand() * 2.3,
         phase: rand() * Math.PI * 2
       });
     }
@@ -705,7 +728,7 @@
     agGlitters.length = 0;
     getBubbleSprites();
 
-    for (i = 0; i < 32; i++) {
+    for (i = 0; i < 20; i++) {
       agBubbles.push({
         x: Math.random() * w,
         y: Math.random() * h,
@@ -720,7 +743,7 @@
     }
 
     var glitterColors = ['#fde047', '#fef08a', '#fb7185', '#f472b6', '#ffffff', '#f59e0b'];
-    for (i = 0; i < 72; i++) {
+    for (i = 0; i < 46; i++) {
       agGlitters.push({
         x: Math.random() * w,
         y: Math.random() * h,
@@ -752,7 +775,7 @@
       agRafId = null;
       return;
     }
-    var showBgFx = state.stage === 'letter' || state.stage === 'bouquet' || state.stage === 'wishes' || state.stage === 'gallery' || state.stage === 'portrait';
+    var showBgFx = state.stage === 'intro' || state.stage === 'letter' || state.stage === 'bouquet' || state.stage === 'wishes' || state.stage === 'gallery' || state.stage === 'portrait';
     if (!showBgFx) {
       agCtx.clearRect(0, 0, ambientGlitterCanvas.width, ambientGlitterCanvas.height);
       agRafId = null;
@@ -764,6 +787,7 @@
       return;
     }
 
+    var frameStart = performance.now();
     var dtScale = agLastNow ? Math.min(2.0, Math.max(0.2, (now - agLastNow) / 33.33)) : 0.5;
     agLastNow = now;
 
@@ -830,7 +854,11 @@
     }
 
     agCtx.globalAlpha = 1;
-    agRafId = requestAnimationFrame(renderAmbientGlitter);
+    var agElapsed = performance.now() - frameStart;
+    var agCooldown = agElapsed > 16 ? 70 : 28;
+    agRafId = window.setTimeout(function () {
+      agRafId = requestAnimationFrame(renderAmbientGlitter);
+    }, agCooldown);
   }
 
   // --- Space Wishes & 3D Hearts Galaxy (Trang 5 before Finale) ---
@@ -1630,6 +1658,7 @@
   }
 
   function renderHeart(now) {
+    var heartFrameStart = performance.now();
     if (state.stage === 'space' || state.stage === 'portrait') {
       hCtx.clearRect(0, 0, heartCanvas.width, heartCanvas.height);
       heartRafId = null;
@@ -1691,19 +1720,20 @@
     var sinY = Math.sin(rotY);
     var scaleFactor = (mode === 'finale' ? 1.48 : 0.66) * Math.min(w, h) * 0.092;
     var cx = w * 0.5;
-    var cy = mode === 'finale' ? h * 0.52 : (state.stage === 'intro' ? h * 0.47 : h * 0.54);
-    var radMul = mode === 'finale' ? 1.22 : 1.05;
-    var palette = mode === 'finale' ? HEART_PALETTE_FINALE : HEART_PALETTE_LIGHT;
+    var cy = mode === 'finale' ? h * 0.52 : (state.stage === 'intro' ? h * 0.45 : h * 0.54);
+    var radMul = mode === 'finale' ? 1.15 : 0.96;
+    if (!heartLightSprites) heartLightSprites = buildHeartDotSprites(HEART_PALETTE_LIGHT);
+    if (!heartFinaleSprites) heartFinaleSprites = buildHeartDotSprites(HEART_PALETTE_FINALE);
+    var sprites = mode === 'finale' ? heartFinaleSprites : heartLightSprites;
 
     hCtx.globalAlpha = state.stage === 'portrait'
       ? 0.34
       : (mode === 'finale'
         ? emerge * (0.78 + 0.22 * converge)
-        : Math.max(0.75, emerge * (0.82 + 0.18 * converge)));
-    for (var b = 0; b < palette.length; b++) {
+        : (state.stage === 'intro' ? 0.62 : Math.max(0.75, emerge * (0.82 + 0.18 * converge))));
+    for (var b = 0; b < sprites.length; b++) {
       var bucket = heartBuckets[b];
-      hCtx.fillStyle = palette[b];
-      hCtx.beginPath();
+      var spr = sprites[b];
       for (var i = 0; i < bucket.length; i++) {
         var pt = bucket[i];
         var swirl = (1 - converge) * (0.65 * Math.sin(totalSec * 0.45 + pt.phase) + pt.phase * 0.25);
@@ -1724,13 +1754,17 @@
 
         var px = cx + rx * scaleFactor * persp;
         var py = cy - y * scaleFactor * persp;
-        var rad = pt.size * persp * radMul;
-        hCtx.moveTo(px + rad, py);
-        hCtx.arc(px, py, rad, 0, Math.PI * 2);
+        var sz = pt.size * persp * radMul * 2.15;
+        hCtx.drawImage(spr, px - sz * 0.5, py - sz * 0.5, sz, sz);
       }
-      hCtx.fill();
     }
-    heartRafId = requestAnimationFrame(renderHeart);
+    var heartElapsed = performance.now() - heartFrameStart;
+    var heartCooldown = mode === 'finale'
+      ? (heartElapsed > 14 ? 95 : 34)
+      : (heartElapsed > 16 ? 70 : 26);
+    heartRafId = window.setTimeout(function () {
+      heartRafId = requestAnimationFrame(renderHeart);
+    }, heartCooldown);
   }
   startHeartLoop();
 
@@ -1755,7 +1789,7 @@
     fwSnowFlakes.length = 0;
     fwGlitters.length = 0;
 
-    for (i = 0; i < 72; i++) {
+    for (i = 0; i < 40; i++) {
       fwRainDrops.push({
         x: Math.random() * (w + 120),
         y: Math.random() * h,
@@ -1767,7 +1801,7 @@
       });
     }
 
-    for (i = 0; i < 64; i++) {
+    for (i = 0; i < 32; i++) {
       fwSnowFlakes.push({
         x: Math.random() * w,
         y: Math.random() * h,
@@ -1780,7 +1814,7 @@
       });
     }
 
-    for (i = 0; i < 42; i++) {
+    for (i = 0; i < 24; i++) {
       fwGlitters.push({
         x: Math.random() * w,
         y: Math.random() * h * 0.88,
@@ -1845,19 +1879,25 @@
     });
   }
 
-  function fireCannonEl(cannonEl, dirSign) {
+  function fireCannonEl(cannonEl, dirSign, forcedSpec) {
     if (!cannonEl || state.stage !== 'finale') return;
+    var spec = forcedSpec || nextCannonFlowerSpec();
     var rect = cannonEl.getBoundingClientRect();
     var startX = rect.left + rect.width * 0.5 + dirSign * 10;
     var startY = rect.top + 6;
+    cannonEl.style.setProperty('--cannon-glow', spec.glow);
+    cannonEl.setAttribute('data-flower', spec.key);
     cannonEl.classList.remove('is-firing');
     void cannonEl.offsetWidth;
     cannonEl.classList.add('is-firing');
-    launchRocket(startX, startY, dirSign * (1.2 + Math.random() * 1.6), -(9.2 + Math.random() * 2.4));
-    launchRocket(startX + dirSign * 6, startY, dirSign * (0.4 + Math.random() * 1.1), -(8.4 + Math.random() * 2.2));
+    spawnCannonFlowerBurst(startX, startY, dirSign, spec);
+    var statusEl = document.getElementById('cannon-species-status');
+    if (statusEl) {
+      statusEl.textContent = spec.emoji + ' Đợt hoa vừa bắn: ' + spec.name + ' (mỗi 3 giây 1 loài hoa khác nhau)';
+    }
     setTimeout(function () {
       if (cannonEl) cannonEl.classList.remove('is-firing');
-    }, 340);
+    }, 360);
   }
 
   var fwRafId = null;
@@ -1881,6 +1921,7 @@
   }
 
   function renderFireworks(now) {
+    var fwFrameStart = performance.now();
     if (state.stage !== 'finale') {
       fwRafId = null;
       return;
@@ -2032,7 +2073,11 @@
 
     fwCtx.globalAlpha = 1;
     if (state.stage === 'finale') {
-      fwRafId = requestAnimationFrame(renderFireworks);
+      var fwElapsed = performance.now() - fwFrameStart;
+      var fwCooldown = fwElapsed > 14 ? 85 : 30;
+      fwRafId = window.setTimeout(function () {
+        fwRafId = requestAnimationFrame(renderFireworks);
+      }, fwCooldown);
     } else {
       fwRafId = null;
     }
@@ -2079,7 +2124,89 @@
   var ffRafId = null;
   var tornadoBlossoms = [];
   var ambientBlossoms = [];
+  var cannonBlossoms = [];
+  var cannonPetals = [];
   var tornadoStart = 0;
+  var cannonVolleyCursor = 0;
+
+  var FLOWER_CANNON_CATALOG = [
+    { key: 'cherryBlossom', name: 'Hoa Anh Đào', emoji: '🌸', petalColor: '#fbcfe8', glow: '#f472b6' },
+    { key: 'sunflower', name: 'Hoa Hướng Dương', emoji: '🌻', petalColor: '#fde047', glow: '#fbbf24' },
+    { key: 'lotus', name: 'Hoa Sen Hồng', emoji: '🪷', petalColor: '#f9a8d4', glow: '#ec4899' },
+    { key: 'hydrangea', name: 'Hoa Cẩm Tú Cầu', emoji: '💠', petalColor: '#a4bce8', glow: '#60a5fa' },
+    { key: 'rosePink', name: 'Hoa Hồng Phấn', emoji: '🌹', petalColor: '#fda4af', glow: '#f43f5e' },
+    { key: 'orchid', name: 'Hoa Lan Tím Ngọc', emoji: '🪻', petalColor: '#d8b4fe', glow: '#a855f7' },
+    { key: 'daisy', name: 'Hoa Cúc Họa Mi', emoji: '🌼', petalColor: '#ffffff', glow: '#fde68a' },
+    { key: 'rosePeach', name: 'Hoa Hồng Đào', emoji: '🌷', petalColor: '#f5b8a7', glow: '#fb7185' },
+    { key: 'iris', name: 'Hoa Diên Vĩ', emoji: '💜', petalColor: '#a78bfa', glow: '#8b5cf6' },
+    { key: 'plumeria', name: 'Hoa Sứ Vàng Trắng', emoji: '💮', petalColor: '#fef3c7', glow: '#fbbf24' },
+    { key: 'poppy', name: 'Hoa Anh Túc Đỏ', emoji: '🌺', petalColor: '#f78c74', glow: '#ef4444' },
+    { key: 'zinnia', name: 'Hoa Thược Dược', emoji: '💐', petalColor: '#f28ca2', glow: '#db2777' }
+  ];
+
+  function nextCannonFlowerSpec() {
+    var spec = FLOWER_CANNON_CATALOG[cannonVolleyCursor % FLOWER_CANNON_CATALOG.length];
+    cannonVolleyCursor += 1;
+    return spec;
+  }
+
+  function spawnCannonFlowerBurst(startX, startY, dirSign, spec) {
+    if (!finaleFloralCanvas || !ffCtx) return;
+    var w = finaleFloralCanvas.width || window.innerWidth;
+    var h = finaleFloralCanvas.height || window.innerHeight;
+    var stamps = getBotanicalStamps();
+    var stamp = stamps[spec.key] || stamps.rosePink;
+    var isCompact = w < 640;
+    var flowerCount = isCompact ? 18 : 26;
+    var petalCount = isCompact ? 12 : 18;
+    var speedScale = Math.max(0.78, Math.min(1.22, h / 820));
+    var i;
+
+    for (i = 0; i < flowerCount; i++) {
+      var fanAngle = -Math.PI * 0.5 + dirSign * ((Math.random() - 0.34) * 1.18);
+      var launchPower = (11.6 + Math.random() * 7.6) * speedScale;
+      cannonBlossoms.push({
+        stamp: stamp,
+        x: startX + (Math.random() - 0.5) * 16,
+        y: startY + (Math.random() - 0.5) * 10,
+        vx: Math.cos(fanAngle) * launchPower * 0.94,
+        vy: Math.sin(fanAngle) * launchPower,
+        gravity: 0.165 + Math.random() * 0.055,
+        drag: 0.992,
+        size: (isCompact ? 22 : 26) + Math.random() * (isCompact ? 18 : 26),
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() < 0.5 ? -1 : 1) * (0.04 + Math.random() * 0.08),
+        swayPhase: Math.random() * Math.PI * 2,
+        swayFreq: 0.05 + Math.random() * 0.05,
+        alpha: 0.96
+      });
+    }
+
+    for (i = 0; i < petalCount; i++) {
+      cannonPetals.push({
+        x: startX + (Math.random() - 0.5) * 14,
+        y: startY,
+        vx: dirSign * (1.4 + Math.random() * 6.2) + (Math.random() - 0.5) * 3.6,
+        vy: -(8.6 + Math.random() * 7.2) * speedScale,
+        gravity: 0.14 + Math.random() * 0.05,
+        rx: 5 + Math.random() * 5.5,
+        ry: 2.8 + Math.random() * 3.2,
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() < 0.5 ? -1 : 1) * (0.08 + Math.random() * 0.11),
+        color: i % 4 === 0 ? '#fef08a' : spec.petalColor,
+        alpha: 0.92
+      });
+    }
+
+    if (cannonBlossoms.length > 160) {
+      cannonBlossoms.splice(0, cannonBlossoms.length - 160);
+    }
+    if (cannonPetals.length > 130) {
+      cannonPetals.splice(0, cannonPetals.length - 130);
+    }
+
+    if (!ffRafId) ffRafId = requestAnimationFrame(renderFinaleFloral);
+  }
 
   function drawCanvasBlossom(ctx, x, y, r, rot, tiltY, outerColor, innerColor, isRose) {
     ctx.save();
@@ -2126,36 +2253,27 @@
     var w = finaleFloralCanvas.width || window.innerWidth;
     var h = finaleFloralCanvas.height || window.innerHeight;
     var maxDist = Math.hypot(w * 0.5, h * 0.5) * 0.96;
-    var pairs = [
-      ['#fb7185', '#fecdd3'],
-      ['#f43f5e', '#fda4af'],
-      ['#f472b6', '#fbcfe8'],
-      ['#e11d48', '#fb7185'],
-      ['#fda4af', '#fef08a'],
-      ['#fecdd3', '#fde047']
-    ];
+    var stamps = getBotanicalStamps();
+    var tornadoSpecies = ['cherryBlossom', 'rosePeach', 'rosePink', 'lotus', 'plumeria', 'zinnia'];
     tornadoBlossoms.length = 0;
     ambientBlossoms.length = 0;
     tornadoStart = performance.now();
 
-    for (var i = 0; i < 108; i++) {
-      var p = pairs[i % pairs.length];
-      var frac = i / 108;
+    for (var i = 0; i < 54; i++) {
+      var frac = i / 54;
       tornadoBlossoms.push({
         delay: frac * 0.72,
         baseAngle: frac * Math.PI * 10 + Math.random() * 0.9,
         spinSpeed: 3.4 + Math.random() * 1.8,
         maxRadius: (0.14 + Math.pow(Math.random(), 0.75) * 0.86) * maxDist,
         funnelLift: (-0.42 + Math.random() * 0.84) * h,
-        size: 11 + Math.random() * 13,
-        outer: p[0],
-        inner: p[1],
-        isRose: i % 2 === 0,
+        size: 26 + Math.random() * 24,
+        stamp: stamps[tornadoSpecies[i % tornadoSpecies.length]],
         fallSpeed: (1.05 + Math.random() * 1.55) * 1.5,
         fallXDrift: (Math.random() - 0.5) * 1.0,
         swayPhase: Math.random() * Math.PI * 2,
         rot: Math.random() * Math.PI * 2,
-        rotSpeed: (Math.random() - 0.5) * 0.09,
+        rotSpeed: (Math.random() - 0.5) * 0.08,
         fallYOffset: 0,
         fallXOffset: 0,
         lastX: w * 0.5,
@@ -2164,20 +2282,17 @@
       });
     }
 
-    for (var j = 0; j < 38; j++) {
-      var ap = pairs[j % pairs.length];
+    for (var j = 0; j < 20; j++) {
       ambientBlossoms.push({
         x: Math.random() * w,
         y: -30 - Math.random() * h,
         vx: (Math.random() - 0.5) * 1.35,
         vy: (1.0 + Math.random() * 1.35) * 1.5,
-        size: 9 + Math.random() * 10,
-        outer: ap[0],
-        inner: ap[1],
-        isRose: j % 3 === 0,
+        size: 22 + Math.random() * 18,
+        stamp: stamps[BOTANICAL_SPECIES[j % BOTANICAL_SPECIES.length]],
         phase: Math.random() * Math.PI * 2,
         rot: Math.random() * Math.PI * 2,
-        rotSpeed: (Math.random() - 0.5) * 0.06
+        rotSpeed: (Math.random() - 0.5) * 0.055
       });
     }
 
@@ -2185,6 +2300,7 @@
   }
 
   function renderFinaleFloral(now) {
+    var ffFrameStart = performance.now();
     if (state.stage !== 'finale' || !ffCtx) {
       ffRafId = null;
       return;
@@ -2209,7 +2325,6 @@
       ffCtx.fill();
     }
 
-    var activeCount = 0;
     for (var i = 0; i < tornadoBlossoms.length; i++) {
       var b = tornadoBlossoms[i];
       var localT = t - b.delay;
@@ -2217,7 +2332,6 @@
 
       var x, y, scale, alpha;
       if (localT < 3.4) {
-        // Phase 1 & 2: emerge at center -> tornado swirl -> expand to fill whole screen
         var expand = easeInOutCubic(Math.min(1, localT / 2.75));
         var radius = 14 + b.maxRadius * expand;
         var angle = b.baseAngle + localT * b.spinSpeed * (1.25 - 0.55 * expand);
@@ -2227,9 +2341,8 @@
         b.lastX = x;
         b.lastY = y;
         scale = Math.min(1, localT / 0.42);
-        alpha = Math.min(0.92, (localT / 0.35) * 0.92);
+        alpha = Math.min(0.9, (localT / 0.35) * 0.9);
       } else {
-        // Phase 3: swirl settles and blossoms gently rain down across the whole screen
         var fallT = localT - 3.4;
         var damp = Math.max(0, 1 - fallT / 1.8);
         var residualSpin = b.baseAngle + 3.4 * b.spinSpeed * 0.7 + fallT * 0.35 * damp;
@@ -2239,15 +2352,20 @@
         x = b.lastX + Math.cos(residualSpin) * 18 * damp + b.fallXOffset;
         y = b.lastY + b.fallYOffset;
         scale = 1;
-        alpha = y > h - 80 ? Math.max(0, ((h + 24 - y) / 104) * 0.88) : 0.88;
+        alpha = y > h - 80 ? Math.max(0, ((h + 24 - y) / 104) * 0.86) : 0.86;
       }
 
-      if (y > h + 28 || alpha <= 0.02) continue;
-      activeCount++;
+      if (y > h + 32 || alpha <= 0.02) continue;
       b.rot += b.rotSpeed;
-      var tiltY = 0.65 + 0.35 * Math.abs(Math.cos(b.rot * 0.8 + b.swayPhase));
+      var tiltY = 0.68 + 0.32 * Math.abs(Math.cos(b.rot * 0.8 + b.swayPhase));
+      var drawSize = b.size * scale;
+      ffCtx.save();
       ffCtx.globalAlpha = alpha;
-      drawCanvasBlossom(ffCtx, x, y, b.size * scale, b.rot, tiltY, b.outer, b.inner, b.isRose);
+      ffCtx.translate(x, y);
+      ffCtx.rotate(b.rot);
+      ffCtx.scale(1, tiltY);
+      ffCtx.drawImage(b.stamp, -drawSize * 0.5, -drawSize * 0.5, drawSize, drawSize);
+      ffCtx.restore();
     }
 
     // Phase 4: continuous gentle blossoms flying/drifting across the whole screen
@@ -2259,21 +2377,81 @@
         ab.x += ab.vx + Math.sin(ab.phase) * 0.85;
         ab.y += ab.vy;
         ab.rot += ab.rotSpeed;
-        if (ab.y > h + 24) {
-          ab.y = -24;
+        if (ab.y > h + 28) {
+          ab.y = -28;
           ab.x = Math.random() * w;
         }
-        if (ab.x < -24) ab.x = w + 20;
-        if (ab.x > w + 24) ab.x = -20;
-        ffCtx.globalAlpha = 0.76 * ambFade;
-        var aTilt = 0.68 + 0.32 * Math.abs(Math.cos(ab.rot + ab.phase));
-        drawCanvasBlossom(ffCtx, ab.x, ab.y, ab.size, ab.rot, aTilt, ab.outer, ab.inner, ab.isRose);
+        if (ab.x < -28) ab.x = w + 24;
+        if (ab.x > w + 28) ab.x = -24;
+        var aTilt = 0.7 + 0.3 * Math.abs(Math.cos(ab.rot + ab.phase));
+        ffCtx.save();
+        ffCtx.globalAlpha = 0.74 * ambFade;
+        ffCtx.translate(ab.x, ab.y);
+        ffCtx.rotate(ab.rot);
+        ffCtx.scale(1, aTilt);
+        ffCtx.drawImage(ab.stamp, -ab.size * 0.5, -ab.size * 0.5, ab.size, ab.size);
+        ffCtx.restore();
       }
+    }
+
+    // Phase 5: 3-second dual floral cannon bursts (distinct species per volley)
+    var cpIdx;
+    for (cpIdx = cannonPetals.length - 1; cpIdx >= 0; cpIdx--) {
+      var cp = cannonPetals[cpIdx];
+      cp.vx *= 0.988;
+      cp.vy += cp.gravity;
+      if (cp.vy > 2.6) cp.vy = 2.6 + Math.sin(cp.rot) * 0.35;
+      cp.x += cp.vx + Math.sin(cp.rot * 0.7) * 0.45;
+      cp.y += cp.vy;
+      cp.rot += cp.rotSpeed;
+      if (cp.y > h + 30) {
+        cannonPetals.splice(cpIdx, 1);
+        continue;
+      }
+      var cpFade = cp.y > h - 75 ? Math.max(0, (h + 25 - cp.y) / 100) : 1;
+      ffCtx.save();
+      ffCtx.globalAlpha = cp.alpha * cpFade;
+      ffCtx.translate(cp.x, cp.y);
+      ffCtx.rotate(cp.rot);
+      ffCtx.fillStyle = cp.color;
+      ffCtx.beginPath();
+      ffCtx.ellipse(0, 0, cp.rx, cp.ry, 0, 0, Math.PI * 2);
+      ffCtx.fill();
+      ffCtx.restore();
+    }
+
+    var cbIdx;
+    for (cbIdx = cannonBlossoms.length - 1; cbIdx >= 0; cbIdx--) {
+      var cb = cannonBlossoms[cbIdx];
+      cb.swayPhase += cb.swayFreq;
+      cb.vx *= cb.drag;
+      cb.vy += cb.gravity;
+      if (cb.vy > 3.2) cb.vy = 3.2;
+      cb.x += cb.vx + (cb.vy > 0 ? Math.sin(cb.swayPhase) * 0.95 : 0);
+      cb.y += cb.vy;
+      cb.rot += cb.rotSpeed;
+      if (cb.y > h + cb.size) {
+        cannonBlossoms.splice(cbIdx, 1);
+        continue;
+      }
+      var cbFade = cb.y > h - 90 ? Math.max(0, (h + 30 - cb.y) / 120) : 1;
+      ffCtx.save();
+      ffCtx.globalAlpha = cb.alpha * cbFade;
+      ffCtx.translate(cb.x, cb.y);
+      ffCtx.rotate(cb.rot);
+      var flutter = 0.72 + 0.28 * Math.abs(Math.cos(cb.swayPhase * 0.8));
+      ffCtx.scale(1, flutter);
+      ffCtx.drawImage(cb.stamp, -cb.size * 0.5, -cb.size * 0.5, cb.size, cb.size);
+      ffCtx.restore();
     }
 
     ffCtx.globalAlpha = 1;
     if (state.stage === 'finale') {
-      ffRafId = requestAnimationFrame(renderFinaleFloral);
+      var ffElapsed = performance.now() - ffFrameStart;
+      var ffCooldown = ffElapsed > 14 ? 85 : 28;
+      ffRafId = window.setTimeout(function () {
+        ffRafId = requestAnimationFrame(renderFinaleFloral);
+      }, ffCooldown);
     } else {
       ffRafId = null;
     }
@@ -2282,6 +2460,8 @@
   function clearFloralTubes() {
     tornadoBlossoms.length = 0;
     ambientBlossoms.length = 0;
+    cannonBlossoms.length = 0;
+    cannonPetals.length = 0;
     if (ffCtx && finaleFloralCanvas) {
       ffCtx.clearRect(0, 0, finaleFloralCanvas.width, finaleFloralCanvas.height);
     }
@@ -2410,6 +2590,55 @@
       g.beginPath();
       g.arc(cx, cy, 14, 0, Math.PI * 2);
       g.fill();
+    } else if (kind === 'cherryBlossom') {
+      for (i = 0; i < 5; i++) {
+        a = (Math.PI * 2 * i) / 5 - Math.PI * 0.5;
+        g.save();
+        g.translate(cx, cy);
+        g.rotate(a);
+        var cGrad = g.createRadialGradient(0, -14, 4, 0, -34, 34);
+        cGrad.addColorStop(0, '#fff5f8');
+        cGrad.addColorStop(0.55, '#fbcfe8');
+        cGrad.addColorStop(1, '#f472b6');
+        g.fillStyle = cGrad;
+        g.beginPath();
+        g.moveTo(0, -6);
+        g.bezierCurveTo(-18, -16, -24, -46, -6, -54);
+        g.lineTo(0, -45);
+        g.lineTo(6, -54);
+        g.bezierCurveTo(24, -46, 18, -16, 0, -6);
+        g.closePath();
+        g.fill();
+        g.restore();
+      }
+      g.fillStyle = '#be185d';
+      g.beginPath();
+      g.arc(cx, cy, 6.5, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#fde047';
+      for (i = 0; i < 8; i++) {
+        a = (Math.PI * 2 * i) / 8;
+        g.beginPath();
+        g.arc(cx + Math.cos(a) * 11, cy + Math.sin(a) * 11, 2, 0, Math.PI * 2);
+        g.fill();
+      }
+    } else if (kind === 'lotus') {
+      for (i = 0; i < 8; i++) drawPetal((Math.PI * 2 * i) / 8, 36, 14, 28, '#ec4899', '#ffe4ef');
+      for (i = 0; i < 6; i++) drawPetal((Math.PI * 2 * i) / 6 + 0.28, 22, 12, 22, '#db2777', '#fff1f5');
+      var lg = g.createRadialGradient(cx, cy, 2, cx, cy, 13);
+      lg.addColorStop(0, '#fef08a');
+      lg.addColorStop(1, '#eab308');
+      g.fillStyle = lg;
+      g.beginPath();
+      g.arc(cx, cy, 11.5, 0, Math.PI * 2);
+      g.fill();
+    } else if (kind === 'orchid') {
+      for (i = 0; i < 5; i++) drawPetal((Math.PI * 2 * i) / 5 - 0.15, 32, 16, 26, '#9333ea', '#f3e8ff');
+      drawPetal(Math.PI, 20, 15, 18, '#be185d', '#f9a8d4');
+      g.fillStyle = '#fde047';
+      g.beginPath();
+      g.arc(cx, cy, 6, 0, Math.PI * 2);
+      g.fill();
     } else {
       // zinnia / dahlia
       for (i = 0; i < 14; i++) drawPetal((Math.PI * 2 * i) / 14, 34, 11, 18, '#c94c68', '#f28ca2');
@@ -2423,7 +2652,7 @@
     return c;
   }
 
-  var BOTANICAL_SPECIES = ['rosePeach', 'sunflower', 'hydrangea', 'daisy', 'iris', 'poppy', 'plumeria', 'rosePink', 'zinnia'];
+  var BOTANICAL_SPECIES = ['cherryBlossom', 'rosePeach', 'sunflower', 'lotus', 'hydrangea', 'daisy', 'orchid', 'iris', 'poppy', 'plumeria', 'rosePink', 'zinnia'];
   var BOTANICAL_STAMPS = null;
   var PETAL_COLORS = ['#f5b8a7', '#fb7185', '#fde047', '#ffffff', '#a4bce8', '#8b6fd6', '#f78c74', '#f28ca2'];
   var PETAL_STAMPS = null;
@@ -3094,7 +3323,7 @@
     shell.classList.toggle('portrait-mode', isPortrait);
     heartCanvas.classList.toggle('hidden', isSpace || isPortrait);
     if (!isSpace && !isPortrait) startHeartLoop();
-    var showAmbientFx = state.stage === 'letter' || state.stage === 'bouquet' || state.stage === 'wishes' || state.stage === 'gallery';
+    var showAmbientFx = state.stage === 'intro' || state.stage === 'letter' || state.stage === 'bouquet' || state.stage === 'wishes' || state.stage === 'gallery';
     petalsLayer.classList.toggle(
       'hidden',
       !(showAmbientFx || isFinale)
@@ -3158,8 +3387,28 @@
         '<div class="heart-spacer" aria-hidden="true"></div>' +
         '<div class="envelope-wrap">' +
           '<div class="giftbox-stage" id="intro-giftstage">' +
+            '<div class="gift-rays" aria-hidden="true"></div>' +
+            '<div class="gift-orbit-ring ring-a" aria-hidden="true">' +
+              '<span class="orbit-gem g1">✦</span>' +
+              '<span class="orbit-gem g2">♥</span>' +
+            '</div>' +
+            '<div class="gift-orbit-ring ring-b" aria-hidden="true">' +
+              '<span class="orbit-gem g3">✿</span>' +
+              '<span class="orbit-gem g4">✦</span>' +
+            '</div>' +
+            '<div class="gift-emblems-stream" aria-hidden="true">' +
+              '<span class="gift-emblem e1">🌸</span>' +
+              '<span class="gift-emblem e2">♥</span>' +
+              '<span class="gift-emblem e3">✨</span>' +
+              '<span class="gift-emblem e4">✿</span>' +
+              '<span class="gift-emblem e5">🌷</span>' +
+              '<span class="gift-emblem e6">✦</span>' +
+              '<span class="gift-emblem e7">♥</span>' +
+              '<span class="gift-emblem e8">🌸</span>' +
+            '</div>' +
             '<div class="giftbox-card" id="intro-giftbox">' +
               '<div class="gift-glow-aura" aria-hidden="true"></div>' +
+              '<div class="gift-inner-light" aria-hidden="true"></div>' +
               '<div class="gift-shadow" aria-hidden="true"></div>' +
               '<div class="gift-sparkles" aria-hidden="true">' +
                 '<span class="gift-spark s1">✨</span>' +
@@ -3170,6 +3419,8 @@
               '<div class="gift-lid" aria-hidden="true">' +
                 '<div class="gift-lid-ribbon"></div>' +
                 '<div class="gift-bow">' +
+                  '<span class="gift-bow-tail left"></span>' +
+                  '<span class="gift-bow-tail right"></span>' +
                   '<span class="gift-bow-loop left"></span>' +
                   '<span class="gift-bow-loop right"></span>' +
                   '<span class="gift-bow-knot"></span>' +
@@ -3796,7 +4047,7 @@
     return (
       '<button type="button" id="' + id + '" class="cannon-btn ' + sideClass + '" title="' + label + '" aria-label="' + label + '">' +
         '<span class="cannon-flash" aria-hidden="true"></span>' +
-        '<span class="cannon-barrel" aria-hidden="true"><span class="cannon-rim"></span></span>' +
+        '<span class="cannon-barrel" aria-hidden="true"><span class="cannon-rim"></span><span class="cannon-emblem">✿</span></span>' +
         '<span class="cannon-base" aria-hidden="true"></span>' +
       '</button>'
     );
@@ -4216,15 +4467,16 @@
           '</div>' +
           '<div class="finale-col-right">' + renderColumnHtml(rightList, state.creditsPaused) + '</div>' +
         '</div>' +
+        '<p id="cannon-species-status" class="cannon-species-status">🌸 Chuẩn bị bắn chùm hoa tri ân mỗi 3 giây...</p>' +
         '<div class="finale-bottom-bar">' +
-          makeCannonHtml('cannon-left', 'left', 'Ống pháo trái - Bắn pháo hoa') +
+          makeCannonHtml('cannon-left', 'left', 'Ống hoa trái - Bắn chùm hoa tri ân') +
           '<div class="finale-actions">' +
             '<button type="button" id="toggle-scroll-btn" class="btn-dark-pill">' + (state.creditsPaused ? '▶ Tiếp tục trôi tên' : '❚❚ Tạm dừng trôi tên') + '</button>' +
             '<button type="button" id="burst-fw-btn" class="btn-dark-pill">🎆 Bắn pháo hoa</button>' +
             '<button type="button" id="floral-tube-btn" class="btn-dark-pill">🌸 Vòi rồng hoa</button>' +
             '<button type="button" id="restart-btn" class="btn-primary" style="padding:0.6rem 1.35rem;font-size:0.82rem;">↺ Xem lại từ đầu</button>' +
           '</div>' +
-          makeCannonHtml('cannon-right', 'right', 'Ống pháo phải - Bắn pháo hoa') +
+          makeCannonHtml('cannon-right', 'right', 'Ống hoa phải - Bắn chùm hoa tri ân') +
         '</div>' +
       '</div>';
 
@@ -4234,18 +4486,20 @@
     var leftCannon = document.getElementById('cannon-left');
     var rightCannon = document.getElementById('cannon-right');
 
-    setTimeout(function () {
-      fireCannonEl(leftCannon, 1);
-      fireCannonEl(rightCannon, -1);
-    }, 300);
+    function fireFlowerVolleyPair() {
+      if (state.stage !== 'finale') return;
+      var spec = nextCannonFlowerSpec();
+      fireCannonEl(leftCannon, 1, spec);
+      setTimeout(function () {
+        if (state.stage === 'finale') fireCannonEl(rightCannon, -1, spec);
+      }, 120);
+    }
+
+    setTimeout(fireFlowerVolleyPair, 300);
 
     state.cannonAutoTimer = setInterval(function () {
-      if (state.stage !== 'finale') return;
-      fireCannonEl(leftCannon, 1);
-      setTimeout(function () {
-        fireCannonEl(rightCannon, -1);
-      }, 280);
-    }, 2800);
+      fireFlowerVolleyPair();
+    }, 3000);
 
     leftCannon.addEventListener('click', function () {
       playChime([659.25, 880.0, 1174.66], 0.05, 0.04);
@@ -4259,8 +4513,6 @@
     document.getElementById('burst-fw-btn').addEventListener('click', function () {
       spawnButtonBurst(this);
       playChime([659.25, 783.99, 1046.5, 1318.5], 0.06, 0.04);
-      fireCannonEl(leftCannon, 1);
-      fireCannonEl(rightCannon, -1);
       spawnFireworkBurst(window.innerWidth * (0.25 + Math.random() * 0.5), window.innerHeight * (0.16 + Math.random() * 0.2), '#fde047');
     });
     document.getElementById('floral-tube-btn').addEventListener('click', function () {
