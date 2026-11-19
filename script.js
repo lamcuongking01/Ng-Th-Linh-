@@ -575,6 +575,7 @@
   var heartBuckets = HEART_PALETTE_LIGHT.map(function () { return []; });
   var heartModeStart = performance.now();
   var heartLastMode = 'ambient';
+  var heartRafId = null;
 
   (function buildHeartParticles() {
     var seed = 20112026;
@@ -1621,12 +1622,21 @@
     phRafId = requestAnimationFrame(renderPortraitHeartCanvas);
   }
 
+  function startHeartLoop() {
+    if (!hCtx || !heartCanvas) return;
+    if (!heartRafId && state.stage !== 'space' && state.stage !== 'portrait') {
+      heartRafId = requestAnimationFrame(renderHeart);
+    }
+  }
+
   function renderHeart(now) {
-    if (state.stage === 'space' || state.stage === 'portrait' || state.curtainActive) {
-      if (state.stage === 'space' || state.stage === 'portrait') {
-        hCtx.clearRect(0, 0, heartCanvas.width, heartCanvas.height);
-      }
-      requestAnimationFrame(renderHeart);
+    if (state.stage === 'space' || state.stage === 'portrait') {
+      hCtx.clearRect(0, 0, heartCanvas.width, heartCanvas.height);
+      heartRafId = null;
+      return;
+    }
+    if (state.curtainActive) {
+      heartRafId = requestAnimationFrame(renderHeart);
       return;
     }
     var mode = (state.stage === 'finale' || state.stage === 'portrait') ? 'finale' : 'ambient';
@@ -1720,9 +1730,9 @@
       }
       hCtx.fill();
     }
-    requestAnimationFrame(renderHeart);
+    heartRafId = requestAnimationFrame(renderHeart);
   }
-  requestAnimationFrame(renderHeart);
+  startHeartLoop();
 
   // --- Finale Effects: Sparkling Fireworks, Rain, Snow & Twinkle Stars ---
   var fwCtx = fireworksCanvas.getContext('2d');
@@ -3083,6 +3093,7 @@
     shell.classList.toggle('space-mode', isSpace);
     shell.classList.toggle('portrait-mode', isPortrait);
     heartCanvas.classList.toggle('hidden', isSpace || isPortrait);
+    if (!isSpace && !isPortrait) startHeartLoop();
     var showAmbientFx = state.stage === 'letter' || state.stage === 'bouquet' || state.stage === 'wishes' || state.stage === 'gallery';
     petalsLayer.classList.toggle(
       'hidden',
@@ -3904,9 +3915,10 @@
           '<p class="portrait-inner-wish hidden" id="portrait-inner-wish">' + HEART_STAGE_WISHES[0] + '</p>' +
 
           '<div class="portrait-hud-controls" id="portrait-controls-outer">' +
+            '<button type="button" id="portrait-enter-portal-btn" class="btn-primary">✨ Vào chiều không gian tim</button>' +
             '<button type="button" id="portrait-zoom-in-btn" class="btn-dark-pill">＋ Phóng gần tim</button>' +
             '<button type="button" id="portrait-zoom-out-btn" class="btn-dark-pill">－ Thu xa tim</button>' +
-            '<button type="button" id="portrait-to-finale-outer" class="btn-primary">✨ Đến trang kết →</button>' +
+            '<button type="button" id="portrait-to-finale-outer" class="btn-dark-pill">Trang kết →</button>' +
           '</div>' +
 
           '<div class="portrait-hud-controls hidden" id="portrait-controls-inner">' +
@@ -4013,13 +4025,13 @@
       var activeName = snap.activeItem ? snap.activeItem.name : '';
       if (kickerEl && titleEl && subEl) {
         if (isDiving) {
-          kickerEl.textContent = 'Đang bước vào bên trong trái tim...';
-          titleEl.textContent = 'Mở ra miền ký ức 45 học trò';
-          subEl.textContent = 'Những hạt ánh sáng đang hé mở khung cảnh tri ân Cô ' + TEACHER_NAME;
+          kickerEl.textContent = 'Đang xuyên qua cổng không gian trái tim...';
+          titleEl.textContent = 'Bước vào chiều không gian kỷ niệm 45 học trò';
+          subEl.textContent = 'Tinh vân ánh sáng đang hé mở đài tưởng niệm gửi Cô ' + TEACHER_NAME;
         } else if (isInner) {
-          kickerEl.textContent = 'Bên trong trái tim · Ảnh ' + (snap.selectedIndex + 1) + '/' + snap.totalItems;
+          kickerEl.textContent = 'Chiều không gian tinh vân · Ảnh ' + (snap.selectedIndex + 1) + '/' + snap.totalItems;
           titleEl.textContent = activeName || ('Kỷ niệm bên Cô ' + TEACHER_NAME);
-          subEl.textContent = 'Cuộn chuột hoặc bấm ＋/－ để phóng gần · thu xa ngắm trái tim đang đập bên ngoài';
+          subEl.textContent = 'Kéo xoay vòng ánh sáng · Cuộn hoặc ＋/－ để thu phóng · Chạm ảnh để phóng to';
         } else if (isPhotoZoom) {
           kickerEl.textContent = 'Đang phóng to · Ảnh ' + (snap.selectedIndex + 1) + '/' + snap.totalItems;
           titleEl.textContent = activeName;
@@ -4028,17 +4040,71 @@
           kickerEl.textContent = 'Trang 6 · Trái tim ánh sáng 3D';
           titleEl.textContent = 'Trái tim tri ân gửi Cô ' + TEACHER_NAME;
           subEl.textContent = isHolding
-            ? 'Tiếp tục giữ thẳng vào trái tim thêm chút nữa để bước vào bên trong...'
-            : 'Chạm kéo để xoay trái tim · Cuộn để phóng to/thu nhỏ · Nhấn giữ thẳng vào trái tim 3 giây để vào bên trong';
+            ? 'Tiếp tục giữ thẳng vào trái tim thêm chút nữa để mở cổng không gian...'
+            : 'Giữ thẳng vào trái tim 3 giây hoặc bấm nút mở cổng để bước vào chiều không gian ảnh 3D';
         }
       }
     }
 
+    function activateCanvasFallback() {
+      if (state.stage !== 'portrait') return;
+      if (portraitHeartCanvas) {
+        portraitHeartCanvas.classList.remove('hidden');
+        startPortraitHeartLoop();
+      }
+      if (arena) arena.setAttribute('data-ready', 'fallback');
+    }
+
+    function loadStaticPortraitBundle(onLoaded, onFail) {
+      if (window.PortraitHeart3D) {
+        onLoaded();
+        return;
+      }
+      if (window.__portraitBundleLoading) return;
+      window.__portraitBundleLoading = true;
+      var candidates = ['./portrait3d.bundle.js', './public/portrait3d.bundle.js'];
+      var idx = 0;
+      function tryNext() {
+        if (window.PortraitHeart3D) {
+          window.__portraitBundleLoading = false;
+          onLoaded();
+          return;
+        }
+        if (idx >= candidates.length) {
+          window.__portraitBundleLoading = false;
+          onFail();
+          return;
+        }
+        var s = document.createElement('script');
+        s.src = candidates[idx++];
+        s.async = true;
+        s.onload = function () {
+          window.__portraitBundleLoading = false;
+          if (window.PortraitHeart3D) onLoaded();
+          else tryNext();
+        };
+        s.onerror = function () {
+          tryNext();
+        };
+        document.head.appendChild(s);
+      }
+      tryNext();
+    }
+
+    var mountAttempts = 0;
     function mountPortrait3D() {
       if (state.stage !== 'portrait' || !portrait3dStage) return;
       if (!window.PortraitHeart3D) {
-        setTimeout(mountPortrait3D, 45);
+        mountAttempts += 1;
+        if (mountAttempts <= 8) {
+          setTimeout(mountPortrait3D, 45);
+          return;
+        }
+        loadStaticPortraitBundle(mountPortrait3D, activateCanvasFallback);
         return;
+      }
+      if (portraitHeartCanvas) {
+        portraitHeartCanvas.classList.add('hidden');
       }
       window.PortraitHeart3D.mount({
         container: portrait3dStage,
@@ -4064,6 +4130,12 @@
       playChime([659.25, 880.0], 0.035, 0.02);
       showHeartWish(wishCursor + 1, true);
       resetHeartWishTimer();
+    });
+    document.getElementById('portrait-enter-portal-btn').addEventListener('click', function () {
+      playChime([523.25, 659.25, 783.99, 1046.5], 0.06, 0.04);
+      if (window.PortraitHeart3D && window.PortraitHeart3D.enterDimensionViaPortal) {
+        window.PortraitHeart3D.enterDimensionViaPortal();
+      }
     });
     document.getElementById('portrait-zoom-in-btn').addEventListener('click', function () {
       if (window.PortraitHeart3D) window.PortraitHeart3D.adjustOuterZoom(-1.25);

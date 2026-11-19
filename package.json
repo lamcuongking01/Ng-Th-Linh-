@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
+    "build": "npm run build:bundle && vite build",
+    "build:bundle": "esbuild src/portrait3d.ts --bundle --format=iife --minify --target=es2020 --outfile=portrait3d.bundle.js",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit && node --check script.js"

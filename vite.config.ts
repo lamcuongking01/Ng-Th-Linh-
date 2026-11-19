@@ -17,12 +17,12 @@ export default defineConfig(() => {
           if (error) {
             return;
           }
-          const distDir = path.resolve(__dirname, 'dist');
+          const distDir = path.resolve(import.meta.dirname, 'dist');
           if (!fs.existsSync(distDir)) {
             return;
           }
-          for (const file of ['style.css', 'script.js', 'bai1.mp3', 'bai2.mp3']) {
-            const srcFile = path.resolve(__dirname, file);
+          for (const file of ['style.css', 'script.js', 'portrait3d.bundle.js', 'bai1.mp3', 'bai2.mp3']) {
+            const srcFile = path.resolve(import.meta.dirname, file);
             if (fs.existsSync(srcFile)) {
               fs.copyFileSync(srcFile, path.resolve(distDir, file));
             }
@@ -32,7 +32,7 @@ export default defineConfig(() => {
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname, '.'),
       },
     },
     server: {

@@ -500,3 +500,48 @@ export function generateHeartContourLoop(
   return pts;
 }
 
+/**
+ * Computes smooth dimensional portal warp progress [0..1] during the dive
+ * into the inner Cosmic Sanctuary Dimension: peaks mid-transition for vortex/FOV feel.
+ */
+export function computeDimensionWarpPeak(diveAmount: number): number {
+  const clamped = Math.max(0, Math.min(1, diveAmount));
+  return Math.sin(clamped * Math.PI);
+}
+
+/**
+ * Computes gentle harmonic 3D elevation offset for each floating portrait
+ * inside the Cosmic Sanctuary Dimension so the gallery forms a living celestial wave.
+ */
+export function computeDimensionWaveY(
+  index: number,
+  totalItems: number,
+  timeSec: number,
+  amplitude = 0.28
+): number {
+  if (totalItems <= 0) return 0;
+  const phase = (index / totalItems) * Math.PI * 4 + timeSec * 1.15;
+  return Math.sin(phase) * amplitude;
+}
+
+export interface PortalRingSpec {
+  radius: number;
+  tubeRadius: number;
+  y: number;
+  tiltX: number;
+  tiltZ: number;
+  spinSpeed: number;
+  colorHex: number;
+}
+
+/**
+ * Generates deterministic concentric astral portal rings framing the inner dimension.
+ */
+export function generatePortalRingSpecs(): PortalRingSpec[] {
+  return [
+    { radius: 8.8, tubeRadius: 0.022, y: -2.14, tiltX: Math.PI * 0.5, tiltZ: 0.03, spinSpeed: 0.14, colorHex: 0xf472b6 },
+    { radius: 9.8, tubeRadius: 0.018, y: 3.85, tiltX: Math.PI * 0.5 - 0.12, tiltZ: -0.08, spinSpeed: -0.11, colorHex: 0xfde68a },
+    { radius: 11.4, tubeRadius: 0.016, y: 4.35, tiltX: Math.PI * 0.5 - 0.08, tiltZ: 0.1, spinSpeed: 0.08, colorHex: 0xc084fc },
+    { radius: 4.4, tubeRadius: 0.018, y: 3.62, tiltX: Math.PI * 0.5 - 0.06, tiltZ: 0.0, spinSpeed: -0.18, colorHex: 0xfbcfe8 },
+  ];
+}

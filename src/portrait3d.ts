@@ -13,12 +13,15 @@ import {
   RingCardSlot,
   computeBubbleCenterSwell,
   computeCircleRingLayout,
+  computeDimensionWarpPeak,
+  computeDimensionWaveY,
   computeResponsiveFov,
   computeZoomCameraDistance,
   createInitialHoldGateState,
   generateBubbleSpecs,
   generateHeartContourLoop,
   generateHeartParticles,
+  generatePortalRingSpecs,
   getNeighborIndices,
   heartbeatImpulse,
   shortestAngleDiff,
@@ -75,10 +78,59 @@ function detectSoftwareWebGL(): boolean {
     const rendererStr = dbg
       ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '')
       : String(gl.getParameter(gl.RENDERER) || '');
-    return /SwiftShader|llvmpipe|Software|Microsoft Basic Render/i.test(rendererStr);
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return /SwiftShader|llvmpipe|softpipe|Software|Microsoft Basic Render/i.test(rendererStr);
   } catch {
     return false;
   }
+}
+
+function createSanctuaryFloorTexture(maxAnisotropy: number): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 512;
+  const ctx = c.getContext('2d')!;
+  const cx = 256;
+  const cy = 256;
+
+  const bg = ctx.createRadialGradient(cx, cy, 18, cx, cy, 256);
+  bg.addColorStop(0, '#3a0b2e');
+  bg.addColorStop(0.42, '#1f0624');
+  bg.addColorStop(0.78, '#130318');
+  bg.addColorStop(1, '#0b020f');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Astral concentric constellation rings
+  const ringRadii = [58, 112, 168, 214, 242];
+  for (let i = 0; i < ringRadii.length; i++) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, ringRadii[i], 0, Math.PI * 2);
+    ctx.strokeStyle = i % 2 === 0 ? 'rgba(249, 168, 212, 0.34)' : 'rgba(253, 230, 138, 0.24)';
+    ctx.lineWidth = i === 3 ? 2.2 : 1.2;
+    ctx.stroke();
+  }
+
+  // 12 celestial radial meridians + starlight nodes
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * 58, cy + Math.sin(a) * 58);
+    ctx.lineTo(cx + Math.cos(a) * 242, cy + Math.sin(a) * 242);
+    ctx.strokeStyle = 'rgba(244, 114, 182, 0.16)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(a) * 214, cy + Math.sin(a) * 214, 3.2, 0, Math.PI * 2);
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(253, 224, 71, 0.65)' : 'rgba(251, 207, 232, 0.65)';
+    ctx.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = Math.max(1, maxAnisotropy);
+  return tex;
 }
 
 function makeHeartHitShape(): THREE.Shape {
@@ -148,7 +200,13 @@ class PortraitHeartScene {
   private interiorGroup: THREE.Group;
   private columnGroup: THREE.Group;
   private crownBackingMesh!: THREE.Mesh;
+  private crownHaloGroup!: THREE.Group;
+  private portalRings: { mesh: THREE.Mesh; spinSpeed: number }[] = [];
+  private nebulaDomeMat!: THREE.ShaderMaterial;
+  private lanternMat!: THREE.ShaderMaterial;
   private ringGroup: THREE.Group;
+  private lightBeamsMesh?: THREE.InstancedMesh;
+  private lightBeamsMat?: THREE.MeshBasicMaterial;
   private bubble3dGroup: THREE.Group;
   private bubble3dMats: THREE.ShaderMaterial[] = [];
   private bubbles: {
@@ -164,6 +222,7 @@ class PortraitHeartScene {
 
   private cssCrownRoot: THREE.Group;
   private cssCrownObj!: CSS3DObject;
+  private lastCrownOpacity = '';
   private cssRingRoot: THREE.Group;
   private cssCardRecords: {
     obj: CSS3DObject;
@@ -171,6 +230,11 @@ class PortraitHeartScene {
     slot: RingCardSlot;
     worldOffsetZ: number;
     currentScale: number;
+    lastOpacity: string;
+    lastActive: boolean;
+    lastNeighbor: boolean;
+    lastZoomed: boolean;
+    lastPointerEvents: string;
   }[] = [];
 
   private raycaster = new THREE.Raycaster();
@@ -179,6 +243,8 @@ class PortraitHeartScene {
   private scratchLookTarget = new THREE.Vector3();
   private scratchLookCurrent = new THREE.Vector3(0, 0.08, 0);
   private scratchVec = new THREE.Vector3();
+  private scratchObj = new THREE.Object3D();
+  private baseFov = 46;
 
   private gate: HoldGateState = createInitialHoldGateState();
   private diveAmount = 0; // 0 = outer heart, 1 = inside heart
@@ -234,11 +300,12 @@ class PortraitHeartScene {
     this.scene.fog = new THREE.FogExp2(0x130410, 0.0085);
     this.cssScene = new THREE.Scene();
 
+    this.baseFov = computeResponsiveFov(aspect);
     this.camera = new THREE.PerspectiveCamera(
-      computeResponsiveFov(aspect),
+      this.baseFov,
       aspect,
       0.1,
-      90
+      110
     );
     this.camera.position.set(0, 0.22, this.gate.outerZoomDist);
     this.camera.lookAt(this.scratchLookCurrent);
@@ -327,6 +394,10 @@ class PortraitHeartScene {
     this.buildCircularStudentRing();
     this.buildSoapBubbles();
 
+    if (!this.isSoftwareGl) {
+      this.renderer.compile(this.scene, this.camera);
+    }
+
     this.bindEvents();
     this.notifyState(true);
     this.lastTickMs = performance.now();
@@ -355,7 +426,7 @@ class PortraitHeartScene {
   }
 
   private buildCosmosBackground(): void {
-    const starCount = this.isSoftwareGl ? 420 : 1080;
+    const starCount = this.isSoftwareGl ? 320 : 900;
     const pos = new Float32Array(starCount * 3);
     const col = new Float32Array(starCount * 3);
     const sz = new Float32Array(starCount);
@@ -501,7 +572,7 @@ class PortraitHeartScene {
     this.outerGlowSprite.position.set(0, 0, -0.4);
     this.heartGroup.add(this.outerGlowSprite);
 
-    const count = this.isSoftwareGl ? 2800 : 5200;
+    const count = this.isSoftwareGl ? 2200 : 4600;
     const data = generateHeartParticles(count, 20261120);
 
     const basePos = new Float32Array(count * 3);
@@ -693,7 +764,7 @@ class PortraitHeartScene {
     }
 
     // Orbital stardust swirl surrounding the outer heart & expanding into lantern sparks inside
-    const swirlCount = this.isSoftwareGl ? 240 : 560;
+    const swirlCount = this.isSoftwareGl ? 180 : 460;
     const swBase = new Float32Array(swirlCount * 3);
     const swInner = new Float32Array(swirlCount * 3);
     const swCol = new Float32Array(swirlCount * 3);
@@ -811,52 +882,216 @@ class PortraitHeartScene {
   }
 
   private buildInteriorMonument(): void {
-    // Shared materials (rose-marble, warm rose-gold, obsidian rose floor)
+    // 0. Astral Nebula & Aurora Dimension Sky Dome surrounding the interior world
+    const domeGeo = new THREE.SphereGeometry(34, 28, 20);
+    this.disposableGeos.push(domeGeo);
+    this.nebulaDomeMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uReveal: { value: 0 },
+      },
+      vertexShader: `
+        varying vec3 vDir;
+        void main() {
+          vDir = normalize(position);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uReveal;
+        varying vec3 vDir;
+
+        void main() {
+          float h = clamp(vDir.y * 0.5 + 0.5, 0.0, 1.0);
+          float swirl = sin(vDir.x * 3.8 + uTime * 0.24) * cos(vDir.z * 3.2 - uTime * 0.18);
+          float aurora = smoothstep(0.12, 0.88, 0.5 + 0.5 * sin(vDir.y * 6.5 + swirl * 2.1 + uTime * 0.35));
+
+          vec3 deepVoid = vec3(0.055, 0.014, 0.095);
+          vec3 astralViolet = vec3(0.24, 0.05, 0.34);
+          vec3 roseMist = vec3(0.62, 0.12, 0.42);
+          vec3 goldGlow = vec3(0.96, 0.78, 0.48);
+
+          vec3 col = mix(deepVoid, astralViolet, smoothstep(0.18, 0.72, h));
+          col = mix(col, roseMist, aurora * 0.42 * smoothstep(0.2, 0.85, h));
+          col += goldGlow * pow(aurora, 4.0) * 0.12 * smoothstep(0.35, 0.9, h);
+          gl_FragColor = vec4(col, uReveal * 0.84);
+        }
+      `,
+      side: THREE.BackSide,
+      transparent: true,
+      depthWrite: false,
+    });
+    this.disposableMats.push(this.nebulaDomeMat);
+    const nebulaDome = new THREE.Mesh(domeGeo, this.nebulaDomeMat);
+    this.interiorGroup.add(nebulaDome);
+
+    // Rising Golden-Rose Sky Lantern Embers inside the Cosmic Dimension
+    const lanternCount = this.isSoftwareGl ? 120 : 300;
+    const lPos = new Float32Array(lanternCount * 3);
+    const lCol = new Float32Array(lanternCount * 3);
+    const lSize = new Float32Array(lanternCount);
+    const lPhase = new Float32Array(lanternCount);
+    const lPalette = [
+      new THREE.Color('#fde68a'),
+      new THREE.Color('#fbcfe8'),
+      new THREE.Color('#fda4af'),
+      new THREE.Color('#e9d5ff'),
+    ];
+    let lSeed = 77201120;
+    const lRand = () => {
+      lSeed = (lSeed * 1664525 + 1013904223) >>> 0;
+      return lSeed / 4294967296;
+    };
+    for (let i = 0; i < lanternCount; i++) {
+      const a = lRand() * Math.PI * 2;
+      const r = 2.6 + lRand() * 10.5;
+      lPos[i * 3] = Math.cos(a) * r;
+      lPos[i * 3 + 1] = -2.2 + lRand() * 9.5;
+      lPos[i * 3 + 2] = Math.sin(a) * r;
+      const c = lPalette[Math.floor(lRand() * lPalette.length)];
+      lCol[i * 3] = c.r;
+      lCol[i * 3 + 1] = c.g;
+      lCol[i * 3 + 2] = c.b;
+      lSize[i] = 1.6 + lRand() * 2.8;
+      lPhase[i] = lRand() * Math.PI * 2;
+    }
+    const lanternGeo = new THREE.BufferGeometry();
+    lanternGeo.setAttribute('position', new THREE.BufferAttribute(lPos, 3));
+    lanternGeo.setAttribute('aColor', new THREE.BufferAttribute(lCol, 3));
+    lanternGeo.setAttribute('aSize', new THREE.BufferAttribute(lSize, 1));
+    lanternGeo.setAttribute('aPhase', new THREE.BufferAttribute(lPhase, 1));
+    this.disposableGeos.push(lanternGeo);
+
+    this.lanternMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uReveal: { value: 0 },
+        uPixelRatio: {
+          value: this.isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 2),
+        },
+      },
+      vertexShader: `
+        attribute vec3 aColor;
+        attribute float aSize;
+        attribute float aPhase;
+        uniform float uTime;
+        uniform float uReveal;
+        uniform float uPixelRatio;
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main() {
+          vec3 p = position;
+          p.y = mod(p.y + uTime * 0.42 + 2.2, 9.5) - 2.2;
+          p.x += sin(uTime * 0.65 + aPhase) * 0.25;
+          p.z += cos(uTime * 0.55 + aPhase * 1.3) * 0.25;
+          vColor = aColor;
+          float edgeFade = smoothstep(-2.2, -0.8, p.y) * smoothstep(7.3, 5.2, p.y);
+          vAlpha = uReveal * edgeFade * (0.55 + 0.45 * sin(uTime * 2.2 + aPhase));
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_Position = projectionMatrix * mv;
+          gl_PointSize = clamp(aSize * uPixelRatio * (38.0 / max(2.2, -mv.z)), 1.8, 24.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main() {
+          vec2 uv = gl_PointCoord - vec2(0.5);
+          float d = length(uv);
+          if (d > 0.5) discard;
+          float core = smoothstep(0.24, 0.0, d);
+          float halo = smoothstep(0.5, 0.05, d) * 0.58;
+          gl_FragColor = vec4(mix(vColor, vec3(1.0), core * 0.55), vAlpha * (core + halo));
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    this.disposableMats.push(this.lanternMat);
+    const lanternPoints = new THREE.Points(lanternGeo, this.lanternMat);
+    lanternPoints.frustumCulled = false;
+    this.interiorGroup.add(lanternPoints);
+
+    // Shared materials (rose-marble, warm rose-gold, astral floor)
     const marbleMat = new THREE.MeshStandardMaterial({
       color: 0xfff0f5,
-      roughness: 0.32,
-      metalness: 0.06,
+      roughness: 0.3,
+      metalness: 0.08,
     });
     const roseGoldMat = new THREE.MeshStandardMaterial({
       color: 0xf4b6c8,
-      roughness: 0.24,
-      metalness: 0.78,
+      roughness: 0.22,
+      metalness: 0.82,
       emissive: 0x3b0b20,
-      emissiveIntensity: 0.24,
+      emissiveIntensity: 0.26,
     });
+    const champagneGoldMat = new THREE.MeshStandardMaterial({
+      color: 0xfde68a,
+      roughness: 0.2,
+      metalness: 0.86,
+      emissive: 0x451a03,
+      emissiveIntensity: 0.25,
+    });
+    const floorTex = createSanctuaryFloorTexture(
+      this.renderer.capabilities.getMaxAnisotropy()
+    );
+    this.disposableTexs.push(floorTex);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x1a0613,
-      roughness: 0.25,
-      metalness: 0.42,
+      color: 0xffffff,
+      map: floorTex,
+      roughness: 0.22,
+      metalness: 0.45,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.88,
     });
     const ringGlowMat = new THREE.MeshBasicMaterial({
       color: 0xf9a8d4,
       transparent: true,
-      opacity: 0.58,
+      opacity: 0.62,
     });
-    this.disposableMats.push(marbleMat, roseGoldMat, floorMat, ringGlowMat);
+    this.disposableMats.push(marbleMat, roseGoldMat, champagneGoldMat, floorMat, ringGlowMat);
 
-    // 1. Wide circular obsidian-rose stage floor disc (y = -2.26)
-    const floorGeo = new THREE.CylinderGeometry(7.05, 7.25, 0.16, 48);
+    // 1. Wide Astral Starlight Floor Disc (y = -2.26)
+    const floorGeo = new THREE.CylinderGeometry(7.25, 7.45, 0.16, 48);
     this.disposableGeos.push(floorGeo);
     const floorDisc = new THREE.Mesh(floorGeo, floorMat);
     floorDisc.position.set(0, -2.26, 0);
     this.columnGroup.add(floorDisc);
 
-    // Outer orbital ring on floor under the circular student pedestals
-    const orbitRingGeo = new THREE.TorusGeometry(RING_RADIUS, 0.032, 12, 72);
+    // Outer orbital ring on floor under the circular student pedestals (y = -2.16, >= 0.02 separation)
+    const orbitRingGeo = new THREE.TorusGeometry(RING_RADIUS, 0.036, 12, 72);
     this.disposableGeos.push(orbitRingGeo);
     const orbitRing = new THREE.Mesh(orbitRingGeo, ringGlowMat);
     orbitRing.rotation.x = Math.PI * 0.5;
     orbitRing.position.set(0, -2.16, 0);
     this.columnGroup.add(orbitRing);
 
+    // Concentric Astral Portal Rings framing the Cosmic Dimension
+    const portalSpecs = generatePortalRingSpecs();
+    for (const ps of portalSpecs) {
+      const pGeo = new THREE.TorusGeometry(ps.radius, ps.tubeRadius, 12, 72);
+      const pMat = new THREE.MeshBasicMaterial({
+        color: ps.colorHex,
+        transparent: true,
+        opacity: 0.24,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      this.disposableGeos.push(pGeo);
+      this.disposableMats.push(pMat);
+      const mesh = new THREE.Mesh(pGeo, pMat);
+      mesh.position.set(0, ps.y, 0);
+      mesh.rotation.set(ps.tiltX, 0, ps.tiltZ);
+      this.interiorGroup.add(mesh);
+      this.portalRings.push({ mesh, spinSpeed: ps.spinSpeed });
+    }
+
     // 2. Stepped 3-tier Classical Pedestal Base
-    const base1Geo = new THREE.CylinderGeometry(1.18, 1.32, 0.22, 36);
-    const base2Geo = new THREE.CylinderGeometry(0.92, 1.06, 0.22, 36);
-    const baseTrimGeo = new THREE.TorusGeometry(0.96, 0.045, 12, 36);
+    const base1Geo = new THREE.CylinderGeometry(1.22, 1.38, 0.22, 36);
+    const base2Geo = new THREE.CylinderGeometry(0.94, 1.08, 0.22, 36);
+    const baseTrimGeo = new THREE.TorusGeometry(0.98, 0.045, 12, 36);
     const base3Geo = new THREE.CylinderGeometry(0.68, 0.84, 0.2, 36);
     this.disposableGeos.push(base1Geo, base2Geo, baseTrimGeo, base3Geo);
 
@@ -864,7 +1099,7 @@ class PortraitHeartScene {
     base1.position.y = -2.07;
     const base2 = new THREE.Mesh(base2Geo, marbleMat);
     base2.position.y = -1.85;
-    const baseTrim = new THREE.Mesh(baseTrimGeo, roseGoldMat);
+    const baseTrim = new THREE.Mesh(baseTrimGeo, champagneGoldMat);
     baseTrim.rotation.x = Math.PI * 0.5;
     baseTrim.position.y = -1.74;
     const base3 = new THREE.Mesh(base3Geo, marbleMat);
@@ -888,27 +1123,46 @@ class PortraitHeartScene {
       this.columnGroup.add(rib);
     }
 
-    const midCollar = new THREE.Mesh(midCollarGeo, roseGoldMat);
+    const midCollar = new THREE.Mesh(midCollarGeo, champagneGoldMat);
     midCollar.rotation.x = Math.PI * 0.5;
     midCollar.position.y = -0.28;
     this.columnGroup.add(midCollar);
 
     // 4. Lotus Capital + Rose-Gold Cradle on Top of Column
-    const cap1Geo = new THREE.CylinderGeometry(0.74, 0.44, 0.28, 32);
-    const capTrimGeo = new THREE.TorusGeometry(0.75, 0.048, 12, 32);
-    const capTopGeo = new THREE.CylinderGeometry(0.82, 0.78, 0.14, 32);
+    const cap1Geo = new THREE.CylinderGeometry(0.76, 0.44, 0.28, 32);
+    const capTrimGeo = new THREE.TorusGeometry(0.77, 0.048, 12, 32);
+    const capTopGeo = new THREE.CylinderGeometry(0.84, 0.8, 0.14, 32);
     this.disposableGeos.push(cap1Geo, capTrimGeo, capTopGeo);
 
     const cap1 = new THREE.Mesh(cap1Geo, marbleMat);
     cap1.position.y = 1.12;
-    const capTrim = new THREE.Mesh(capTrimGeo, roseGoldMat);
+    const capTrim = new THREE.Mesh(capTrimGeo, champagneGoldMat);
     capTrim.rotation.x = Math.PI * 0.5;
     capTrim.position.y = 1.24;
     const capTop = new THREE.Mesh(capTopGeo, roseGoldMat);
     capTop.position.y = 1.33;
     this.columnGroup.add(cap1, capTrim, capTop);
 
-    // 5. Backing plate for the Crown Memorial Photo sitting flush on top of the column
+    // 5. Celestial Halo Sunburst & Crystal Crown Backing behind Cô Ngô Thị Linh's portrait
+    this.crownHaloGroup = new THREE.Group();
+    this.crownHaloGroup.position.set(0, CROWN_Y, -0.14);
+    const haloRingGeo = new THREE.TorusGeometry(1.72, 0.032, 12, 48);
+    const haloInnerGeo = new THREE.TorusGeometry(1.44, 0.02, 10, 48);
+    const crystalGeo = new THREE.OctahedronGeometry(0.11, 0);
+    this.disposableGeos.push(haloRingGeo, haloInnerGeo, crystalGeo);
+
+    const haloRing = new THREE.Mesh(haloRingGeo, champagneGoldMat);
+    const haloInner = new THREE.Mesh(haloInnerGeo, ringGlowMat);
+    this.crownHaloGroup.add(haloRing, haloInner);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const shard = new THREE.Mesh(crystalGeo, champagneGoldMat);
+      shard.position.set(Math.cos(a) * 1.72, Math.sin(a) * 1.72, 0);
+      shard.rotation.z = a;
+      this.crownHaloGroup.add(shard);
+    }
+    this.columnGroup.add(this.crownHaloGroup);
+
     const crownPlateGeo = new THREE.BoxGeometry(2.58, 1.94, 0.08);
     this.disposableGeos.push(crownPlateGeo);
     this.crownBackingMesh = new THREE.Mesh(crownPlateGeo, roseGoldMat);
@@ -948,9 +1202,10 @@ class PortraitHeartScene {
       RING_Y
     );
 
-    const baseGeo = new THREE.CylinderGeometry(0.42, 0.5, 0.14, 24);
-    const pillarGeo = new THREE.CylinderGeometry(0.22, 0.28, 0.38, 24);
-    const capGeo = new THREE.CylinderGeometry(0.36, 0.27, 0.08, 24);
+    const baseGeo = new THREE.CylinderGeometry(0.42, 0.5, 0.14, 20);
+    const pillarGeo = new THREE.CylinderGeometry(0.22, 0.28, 0.38, 20);
+    const capGeo = new THREE.CylinderGeometry(0.36, 0.27, 0.08, 20);
+    const beamGeo = new THREE.CylinderGeometry(0.14, 0.24, 0.85, 16, 1, true);
     const marbleStandMat = new THREE.MeshStandardMaterial({
       color: 0xfff0f5,
       roughness: 0.3,
@@ -959,34 +1214,69 @@ class PortraitHeartScene {
     const roseGoldStandMat = new THREE.MeshStandardMaterial({
       color: 0xf4b6c8,
       roughness: 0.25,
-      metalness: 0.76,
+      metalness: 0.78,
       emissive: 0x4c0519,
       emissiveIntensity: 0.32,
     });
-    this.disposableGeos.push(baseGeo, pillarGeo, capGeo);
-    this.disposableMats.push(marbleStandMat, roseGoldStandMat);
+    this.lightBeamsMat = new THREE.MeshBasicMaterial({
+      color: 0xf9a8d4,
+      transparent: true,
+      opacity: 0.2,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    this.disposableGeos.push(baseGeo, pillarGeo, capGeo, beamGeo);
+    this.disposableMats.push(marbleStandMat, roseGoldStandMat, this.lightBeamsMat);
+
+    const n = slots.length;
+    if (n > 0) {
+      const baseInst = new THREE.InstancedMesh(baseGeo, roseGoldStandMat, n);
+      const pillarInst = new THREE.InstancedMesh(pillarGeo, marbleStandMat, n);
+      const capInst = new THREE.InstancedMesh(capGeo, roseGoldStandMat, n);
+      this.lightBeamsMesh = new THREE.InstancedMesh(beamGeo, this.lightBeamsMat, n);
+
+      for (let i = 0; i < n; i++) {
+        const slot = slots[i];
+        this.scratchObj.rotation.set(0, 0, 0);
+        this.scratchObj.scale.set(1, 1, 1);
+
+        this.scratchObj.position.set(slot.x, -2.11, slot.z);
+        this.scratchObj.updateMatrix();
+        baseInst.setMatrixAt(i, this.scratchObj.matrix);
+
+        this.scratchObj.position.set(slot.x, -1.91, slot.z);
+        this.scratchObj.updateMatrix();
+        pillarInst.setMatrixAt(i, this.scratchObj.matrix);
+
+        this.scratchObj.position.set(slot.x, -1.72, slot.z);
+        this.scratchObj.updateMatrix();
+        capInst.setMatrixAt(i, this.scratchObj.matrix);
+
+        this.scratchObj.position.set(slot.x, -1.28, slot.z);
+        this.scratchObj.updateMatrix();
+        this.lightBeamsMesh.setMatrixAt(i, this.scratchObj.matrix);
+      }
+
+      baseInst.computeBoundingSphere();
+      pillarInst.computeBoundingSphere();
+      capInst.computeBoundingSphere();
+      this.lightBeamsMesh.computeBoundingSphere();
+      this.ringGroup.add(baseInst, pillarInst, capInst, this.lightBeamsMesh);
+    }
 
     for (let i = 0; i < slots.length; i++) {
       const slot = slots[i];
       const item = this.items[i];
 
-      // Individual mini pedestal pillar directly beneath each student portrait (no pair links)
-      const base = new THREE.Mesh(baseGeo, roseGoldStandMat);
-      base.position.set(slot.x, -2.11, slot.z);
-      const pillar = new THREE.Mesh(pillarGeo, marbleStandMat);
-      pillar.position.set(slot.x, -1.91, slot.z);
-      const cap = new THREE.Mesh(capGeo, roseGoldStandMat);
-      cap.position.set(slot.x, -1.72, slot.z);
-      this.ringGroup.add(base, pillar, cap);
-
-      // Framed CSS3D student portrait card without pair labels
+      // Framed CSS3D student portrait card floating inside the Cosmic Sanctuary Dimension
       const el = document.createElement('div');
       el.className = 'p3d-student-card';
       el.dataset.index = String(i);
       el.innerHTML =
         `<div class="p3d-order-pill">♥ ${String(i + 1).padStart(2, '0')} / ${this.items.length}</div>` +
         '<div class="p3d-photo-wrap">' +
-          `<img src="${item.src}" alt="${item.name}" referrerpolicy="no-referrer" />` +
+          `<img src="${item.src}" alt="${item.name}" loading="eager" referrerpolicy="no-referrer" />` +
         '</div>' +
         '<div class="p3d-caption">' +
           `<div class="p3d-name">${item.name}</div>` +
@@ -1012,6 +1302,11 @@ class PortraitHeartScene {
         slot,
         worldOffsetZ: 0,
         currentScale: CARD_CSS_SCALE,
+        lastOpacity: '',
+        lastActive: false,
+        lastNeighbor: false,
+        lastZoomed: false,
+        lastPointerEvents: '',
       });
     }
   }
@@ -1169,6 +1464,20 @@ class PortraitHeartScene {
     if (this.gate.phase !== 'inner' && this.gate.phase !== 'photo-zoom') return;
     this.gate = stepHoldGate(this.gate, { dtSeconds: 0, exitRequested: true });
     this.enterChimeFired = false;
+    this.notifyState(true);
+  }
+
+  public enterDimensionViaPortal(): void {
+    if (this.gate.phase !== 'outer' && this.gate.phase !== 'holding') return;
+    this.gate = stepHoldGate(this.gate, {
+      dtSeconds: 3.1,
+      pointerDownOnHeart: true,
+      dragDistancePx: 0,
+    });
+    if (this.gate.phase === 'diving' && !this.enterChimeFired) {
+      this.enterChimeFired = true;
+      this.onEnterHeart?.();
+    }
     this.notifyState(true);
   }
 
@@ -1413,7 +1722,8 @@ class PortraitHeartScene {
     const width = this.container.clientWidth || window.innerWidth;
     const height = this.container.clientHeight || window.innerHeight;
     const aspect = width / Math.max(1, height);
-    this.camera.fov = computeResponsiveFov(aspect);
+    this.baseFov = computeResponsiveFov(aspect);
+    this.camera.fov = this.baseFov;
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
@@ -1448,15 +1758,23 @@ class PortraitHeartScene {
 
   private afterDraw(fn: FrameRequestCallback): void {
     if (this.disposed) return;
-    const gl = this.renderer.getContext();
-    if (!this.isSoftwareGl || typeof (gl as WebGL2RenderingContext).fenceSync !== 'function') {
+    if (!this.isSoftwareGl) {
       this.rafId = requestAnimationFrame(fn);
+      return;
+    }
+    const gl = this.renderer.getContext();
+    if (typeof (gl as WebGL2RenderingContext).fenceSync !== 'function') {
+      this.timerId = window.setTimeout(() => {
+        if (!this.disposed) this.rafId = requestAnimationFrame(fn);
+      }, 80);
       return;
     }
     const gl2 = gl as WebGL2RenderingContext;
     const sync = gl2.fenceSync(gl2.SYNC_GPU_COMMANDS_COMPLETE, 0);
     if (!sync) {
-      this.rafId = requestAnimationFrame(fn);
+      this.timerId = window.setTimeout(() => {
+        if (!this.disposed) this.rafId = requestAnimationFrame(fn);
+      }, 80);
       return;
     }
     gl2.flush();
@@ -1466,31 +1784,33 @@ class PortraitHeartScene {
         try { gl2.deleteSync(sync); } catch {}
         return;
       }
-      const res = gl2.clientWaitSync(sync, 0, 0);
-      if (
-        res === gl2.ALREADY_SIGNALED ||
-        res === gl2.CONDITION_SATISFIED ||
-        performance.now() - start > 80
-      ) {
+      const status = gl2.getSyncParameter(sync, gl2.SYNC_STATUS);
+      if (status !== gl2.UNSIGNALED || performance.now() - start > 60) {
         gl2.deleteSync(sync);
-        this.rafId = requestAnimationFrame(fn);
+        const isInteractive =
+          this.gate.phase === 'holding' ||
+          this.gate.phase === 'diving' ||
+          this.gate.phase === 'exiting';
+        this.timerId = window.setTimeout(() => {
+          if (!this.disposed) this.rafId = requestAnimationFrame(fn);
+        }, isInteractive ? 24 : 65);
       } else {
-        this.timerId = window.setTimeout(poll, 4);
+        this.timerId = window.setTimeout(poll, 5);
       }
     };
-    this.timerId = window.setTimeout(poll, 0);
+    this.timerId = window.setTimeout(poll, 5);
   }
 
   private tick = (nowMs: number): void => {
     if (this.disposed) return;
     const rawDt = this.lastTickMs
-      ? Math.min(0.55, Math.max(0.004, (nowMs - this.lastTickMs) * 0.001))
+      ? Math.min(0.6, Math.max(0.004, (nowMs - this.lastTickMs) * 0.001))
       : 0.0167;
     const dt = Math.min(0.05, rawDt);
     this.lastTickMs = nowMs;
     this.elapsedSec += dt;
 
-    // 1. Advance 3-second hold gate using real wall-clock elapsed time (accurate at any FPS!)
+    // 1. Advance 3-second hold gate using real wall-clock elapsed time
     if (this.gate.phase === 'outer' || this.gate.phase === 'holding') {
       this.gate = stepHoldGate(this.gate, { dtSeconds: rawDt });
       if (this.gate.phase === 'diving' && !this.enterChimeFired) {
@@ -1564,15 +1884,37 @@ class PortraitHeartScene {
       pr.line.visible = outerPulseFade > 0.02;
     }
 
-    // 4. Interior visibility gate: strictly hidden while outside (zooming NEVER reveals interior!)
+    // 4. Interior visibility gate & Cosmic Sanctuary Dimension animation
     const showInterior = this.diveAmount > 0.06;
-    this.interiorGroup.visible = showInterior;
-    this.cssRenderer.domElement.style.display = showInterior ? 'block' : 'none';
-    this.bubbleCanvas.style.display = showInterior ? 'block' : 'none';
+    if (this.interiorGroup.visible !== showInterior) {
+      this.interiorGroup.visible = showInterior;
+      this.cssRenderer.domElement.style.display = showInterior ? 'block' : 'none';
+      this.bubbleCanvas.style.display = showInterior ? 'block' : 'none';
+    }
+
+    const warpPeak = computeDimensionWarpPeak(this.diveAmount);
+    const targetFov = this.baseFov + warpPeak * 10.5;
+    if (Math.abs(this.camera.fov - targetFov) > 0.04) {
+      this.camera.fov = THREE.MathUtils.damp(this.camera.fov, targetFov, 7, dt);
+      this.camera.updateProjectionMatrix();
+    }
 
     if (showInterior) {
       const reveal = THREE.MathUtils.smoothstep(this.diveAmount, 0.06, 0.92);
       this.interiorGroup.scale.setScalar(0.55 + 0.45 * reveal);
+
+      this.nebulaDomeMat.uniforms.uTime.value = this.elapsedSec;
+      this.nebulaDomeMat.uniforms.uReveal.value = reveal;
+      this.lanternMat.uniforms.uTime.value = this.elapsedSec;
+      this.lanternMat.uniforms.uReveal.value = reveal;
+
+      for (const pr of this.portalRings) {
+        pr.mesh.rotation.y += pr.spinSpeed * dt;
+      }
+
+      if (this.crownHaloGroup) {
+        this.crownHaloGroup.rotation.z = this.elapsedSec * 0.14;
+      }
 
       // Ring rotation & synced CSS3DRoot rotation
       this.ringYaw = THREE.MathUtils.damp(this.ringYaw, this.targetRingYaw, 6.2, dt);
@@ -1581,44 +1923,50 @@ class PortraitHeartScene {
       this.cssRingRoot.scale.setScalar(0.55 + 0.45 * reveal);
       this.cssCrownRoot.scale.setScalar(0.55 + 0.45 * reveal);
 
-      // Subtle breathing bob on crown plaque
+      // Subtle breathing bob on crown plaque & halo
       const bob = Math.sin(this.elapsedSec * 1.4) * 0.04;
       this.crownBackingMesh.position.y = CROWN_Y + bob;
+      if (this.crownHaloGroup) this.crownHaloGroup.position.y = CROWN_Y + bob;
       this.cssCrownObj.position.y = CROWN_Y + bob;
 
-      // Update per-card depth opacity, active highlight & in-place photo-zoom lift
+      // Update per-card depth opacity, harmonic floating wave & in-place photo-zoom lift (with DOM mutation caching)
       const isZoomed = this.gate.phase === 'photo-zoom';
       this.activeCardLift = THREE.MathUtils.damp(this.activeCardLift, isZoomed ? 1 : 0, 7, dt);
+      const waveAmp = 0.16 * (1 - this.activeCardLift);
       const neighbors = getNeighborIndices(this.selectedIndex, this.cssCardRecords.length);
+
+      if (this.lightBeamsMat) {
+        this.lightBeamsMat.opacity = (isZoomed ? 0.08 : 0.22) * reveal;
+      }
 
       for (let i = 0; i < this.cssCardRecords.length; i++) {
         const rec = this.cssCardRecords[i];
         const worldAng = rec.slot.angleRad + this.ringYaw;
         const wx = Math.sin(worldAng) * RING_RADIUS;
         const wz = Math.cos(worldAng) * RING_RADIUS;
-        const frontness = wz / RING_RADIUS; // +1 front, -1 back
+        const frontness = wz / RING_RADIUS;
 
         const isActive = i === neighbors.active;
         const isNeighbor = i === neighbors.prev || i === neighbors.next;
 
-        // Smooth lift outward along ring radius when active in photo-zoom
-        const targetLift = isActive ? 0.26 * this.activeCardLift : 0;
+        const targetLift = isActive ? 0.28 * this.activeCardLift : 0;
         rec.worldOffsetZ = THREE.MathUtils.damp(rec.worldOffsetZ, targetLift, 8, dt);
         const rEff = RING_RADIUS + rec.worldOffsetZ;
+        const floatY = computeDimensionWaveY(i, this.cssCardRecords.length, this.elapsedSec, waveAmp);
+
         rec.obj.position.set(
           Math.sin(rec.slot.angleRad) * rEff,
-          rec.slot.y + (isActive ? 0.04 * this.activeCardLift : 0),
+          rec.slot.y + floatY + (isActive ? 0.04 * this.activeCardLift : 0),
           Math.cos(rec.slot.angleRad) * rEff
         );
 
         const targetScale =
           CARD_CSS_SCALE *
-          (isActive ? 1 + 0.1 * this.activeCardLift : isZoomed && !isNeighbor ? 0.92 : 1.0);
+          (isActive ? 1 + 0.11 * this.activeCardLift : isZoomed && !isNeighbor ? 0.92 : 1.0);
         rec.currentScale = THREE.MathUtils.damp(rec.currentScale, targetScale, 8, dt);
         rec.obj.scale.setScalar(rec.currentScale);
 
-        // Compute atmospheric depth opacity & subtle column occlusion fade
-        let opacity = reveal * THREE.MathUtils.mapLinear(frontness, -1, 1, 0.42, 1.0);
+        let opacity = reveal * THREE.MathUtils.mapLinear(frontness, -1, 1, 0.44, 1.0);
         if (wz < -0.5 && Math.abs(wx) < 0.78) {
           const behindFactor = 1 - Math.abs(wx) / 0.78;
           opacity *= THREE.MathUtils.lerp(1.0, 0.14, behindFactor);
@@ -1627,16 +1975,39 @@ class PortraitHeartScene {
           opacity = isActive ? 1.0 : isNeighbor ? 0.96 : Math.min(opacity, 0.24);
         }
 
-        rec.el.style.opacity = opacity.toFixed(3);
-        rec.el.classList.toggle('is-active', isActive);
-        rec.el.classList.toggle('is-neighbor', isZoomed && isNeighbor);
-        rec.el.classList.toggle('is-zoomed', isZoomed && isActive);
-        rec.el.style.pointerEvents = opacity > 0.25 ? 'auto' : 'none';
+        const opStr = opacity.toFixed(2);
+        if (rec.lastOpacity !== opStr) {
+          rec.lastOpacity = opStr;
+          rec.el.style.opacity = opStr;
+        }
+        if (rec.lastActive !== isActive) {
+          rec.lastActive = isActive;
+          rec.el.classList.toggle('is-active', isActive);
+        }
+        const nextNeighbor = isZoomed && isNeighbor;
+        if (rec.lastNeighbor !== nextNeighbor) {
+          rec.lastNeighbor = nextNeighbor;
+          rec.el.classList.toggle('is-neighbor', nextNeighbor);
+        }
+        const nextZoomed = isZoomed && isActive;
+        if (rec.lastZoomed !== nextZoomed) {
+          rec.lastZoomed = nextZoomed;
+          rec.el.classList.toggle('is-zoomed', nextZoomed);
+        }
+        const nextPe = opacity > 0.25 ? 'auto' : 'none';
+        if (rec.lastPointerEvents !== nextPe) {
+          rec.lastPointerEvents = nextPe;
+          rec.el.style.pointerEvents = nextPe;
+        }
       }
 
-      this.cssCrownObj.element.style.opacity = (reveal * (isZoomed ? 0.14 : 1.0)).toFixed(3);
+      const crownOpStr = (reveal * (isZoomed ? 0.14 : 1.0)).toFixed(2);
+      if (this.lastCrownOpacity !== crownOpStr) {
+        this.lastCrownOpacity = crownOpStr;
+        this.cssCrownObj.element.style.opacity = crownOpStr;
+      }
 
-      // Update transparent soap bubbles inside the monument (3D spheres + center-swelling motion)
+      // Update transparent soap bubbles inside the monument
       for (const bm of this.bubble3dMats) {
         bm.uniforms.uTime.value = this.elapsedSec;
         bm.uniforms.uOpacity.value = reveal * (isZoomed ? 0.45 : 0.92);
@@ -1664,15 +2035,16 @@ class PortraitHeartScene {
       }
     }
 
-    // 5. Camera choreography across Outer -> Dive -> Inner (zoom near/far) -> In-Place Photo Zoom
+    // 5. Camera choreography across Outer -> Dive -> Inner -> In-Place Photo Zoom
     const width = this.container.clientWidth || window.innerWidth;
     const height = this.container.clientHeight || window.innerHeight;
     const aspect = width / Math.max(1, height);
     const isMobile = aspect < 0.95;
 
     this.innerTiltY = THREE.MathUtils.damp(this.innerTiltY, this.targetInnerTiltY, 6, dt);
-    const effectiveInnerZ = Math.min(25.6, this.gate.innerZoomDist + (isMobile ? 2.4 : 0));
-    const effectiveInnerY = 1.88 + this.innerTiltY + (effectiveInnerZ - 14.2) * 0.05;
+    const effectiveInnerZ = Math.min(25.6, this.gate.innerZoomDist + (isMobile ? 2.6 : 0));
+    const effectiveInnerY = (isMobile ? 2.12 : 1.84) + this.innerTiltY + (effectiveInnerZ - 14.2) * 0.05;
+    const innerTargetY = isMobile ? -0.58 : -0.26;
 
     if (this.gate.phase === 'outer' || this.gate.phase === 'holding') {
       this.scratchCamTarget.set(0, 0.18, this.gate.outerZoomDist);
@@ -1684,16 +2056,14 @@ class PortraitHeartScene {
         THREE.MathUtils.lerp(0.18, effectiveInnerY, t),
         THREE.MathUtils.lerp(this.gate.outerZoomDist, effectiveInnerZ, t)
       );
-      this.scratchLookTarget.set(0, THREE.MathUtils.lerp(0.08, 0.16, t), 0);
+      this.scratchLookTarget.set(0, THREE.MathUtils.lerp(0.08, innerTargetY, t), 0);
     } else if (this.gate.phase === 'photo-zoom') {
-      // Zoom right up to the front card in-place while keeping left & right adjacent cards clearly visible!
-      const trioDist = computeZoomCameraDistance(aspect, this.camera.fov, 2.04);
+      const trioDist = computeZoomCameraDistance(aspect, this.baseFov, 2.04);
       this.scratchCamTarget.set(0, isMobile ? -0.52 : -0.60, RING_RADIUS + trioDist);
       this.scratchLookTarget.set(0, isMobile ? -0.68 : -0.74, RING_RADIUS);
     } else {
-      // 'inner' overview showing center column + crown photo + surrounding circular pedestals inside the beating outer heart
       this.scratchCamTarget.set(0, effectiveInnerY, effectiveInnerZ);
-      this.scratchLookTarget.set(0, 0.16, 0);
+      this.scratchLookTarget.set(0, innerTargetY, 0);
     }
 
     const camDamp = this.gate.phase === 'outer' || this.gate.phase === 'holding' ? 8.5 : 5.4;
@@ -1890,6 +2260,9 @@ export const PortraitHeart3D = {
   },
   exitToOuter(): void {
     activeInstance?.exitToOuter();
+  },
+  enterDimensionViaPortal(): void {
+    activeInstance?.enterDimensionViaPortal();
   },
   adjustOuterZoom(delta: number): void {
     activeInstance?.adjustOuterZoom(delta);

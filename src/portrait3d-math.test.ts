@@ -9,12 +9,15 @@ import {
   OUTER_ZOOM_MIN,
   computeBubbleCenterSwell,
   computeCircleRingLayout,
+  computeDimensionWarpPeak,
+  computeDimensionWaveY,
   computeResponsiveFov,
   computeZoomCameraDistance,
   createInitialHoldGateState,
   generateBubbleSpecs,
   generateHeartContourLoop,
   generateHeartParticles,
+  generatePortalRingSpecs,
   getNeighborIndices,
   heartbeatImpulse,
   implicitRoundedHeart,
@@ -174,3 +177,23 @@ test('generateBubbleSpecs and generateHeartContourLoop produce valid geometries'
   assert.equal(loop.length, 96);
   assert.ok(Math.abs(loop[0].x) < 1e-6 && loop[0].y > 0.5, 'starts at upper heart cleft');
 });
+
+test('Cosmic Sanctuary Dimension math: warp curve, harmonic wave elevation, and portal rings', () => {
+  assert.equal(computeDimensionWarpPeak(0), 0);
+  assert.ok(Math.abs(computeDimensionWarpPeak(0.5) - 1) < 1e-6);
+  assert.ok(Math.abs(computeDimensionWarpPeak(1)) < 1e-6);
+
+  const w0 = computeDimensionWaveY(0, 26, 0, 0.28);
+  const w3 = computeDimensionWaveY(3, 26, 0, 0.28);
+  assert.ok(Math.abs(w0) < 1e-6);
+  assert.ok(Math.abs(w3) > 0.24 && Math.abs(w3) <= 0.28 + 1e-6);
+  assert.equal(computeDimensionWaveY(0, 0, 1.0, 0.28), 0);
+
+  const rings = generatePortalRingSpecs();
+  assert.ok(rings.length >= 4);
+  for (const r of rings) {
+    assert.ok(r.radius > 0 && r.tubeRadius > 0);
+    assert.ok(Number.isFinite(r.spinSpeed) && r.spinSpeed !== 0);
+  }
+});
+

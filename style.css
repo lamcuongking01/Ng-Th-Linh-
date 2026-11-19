@@ -1125,12 +1125,11 @@ button {
   bottom: 0.75rem;
   border-radius: 9999px;
   border: 1px solid rgba(255, 255, 255, 0.72);
-  background: rgba(136, 19, 55, 0.78);
+  background: rgba(136, 19, 55, 0.9);
   color: #fff1f2;
   font-size: 0.72rem;
   font-weight: 700;
   padding: 0.26rem 0.72rem;
-  backdrop-filter: blur(4px);
 }
 
 .wish-quote-panel {
@@ -2148,9 +2147,8 @@ button {
   padding: 0.65rem 1.35rem;
   border-radius: 1rem;
   border: 1px solid rgba(253, 164, 175, 0.38);
-  background: rgba(14, 3, 9, 0.88);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  background: rgba(14, 3, 9, 0.92);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
 }
 
 .space-hud-header .meta-label {
@@ -2181,9 +2179,8 @@ button {
   padding: 0.6rem 0.9rem;
   border-radius: 9999px;
   border: 1px solid rgba(253, 164, 175, 0.38);
-  background: rgba(16, 4, 11, 0.88);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  background: rgba(16, 4, 11, 0.92);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
 }
 
 @keyframes cannonRecoilLeft {
@@ -2431,17 +2428,17 @@ button {
 
 .portrait-inner-wish {
   margin: 0;
-  padding: 0.3rem 0.95rem;
+  padding: 0.24rem 0.85rem;
   border-radius: 9999px;
-  border: 1px solid rgba(244, 114, 182, 0.26);
-  background: rgba(18, 6, 14, 0.76);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-  max-width: min(44rem, 92%);
+  border: 1px solid rgba(244, 114, 182, 0.24);
+  background: rgba(18, 6, 14, 0.72);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.42);
+  max-width: min(42rem, 90%);
   text-align: center;
   font-family: var(--font-letter);
   font-style: italic;
-  font-size: 0.78rem;
-  line-height: 1.38;
+  font-size: 0.74rem;
+  line-height: 1.32;
   color: rgba(255, 236, 246, 0.94);
   pointer-events: none;
 }
@@ -2473,17 +2470,19 @@ button {
   white-space: nowrap;
 }
 
-/* 3D CSS3D Museum Frames Inside the Heart */
+/* 3D CSS3D Museum Frames Inside the Cosmic Sanctuary Dimension */
 .p3d-crown-card {
   width: 316px;
   padding: 10px 10px 12px;
   border-radius: 18px;
-  border: 2.5px solid #f4b6c8;
-  background: linear-gradient(180deg, #fffdfb 0%, #fff0f5 100%);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.65), 0 0 36px rgba(244, 114, 182, 0.52);
+  border: 2.5px solid #fde68a;
+  background: linear-gradient(180deg, #fffdfb 0%, #fff0f6 100%);
+  box-shadow: 0 14px 30px rgba(10, 2, 14, 0.62), 0 0 24px rgba(253, 224, 71, 0.35);
   pointer-events: auto;
   cursor: pointer;
-  transition: opacity 0.3s ease;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  transition: opacity 0.25s ease;
 }
 
 .p3d-crown-img-wrap {
@@ -2515,24 +2514,26 @@ button {
   width: 196px;
   padding: 8px 8px 11px;
   border-radius: 15px;
-  border: 2px solid rgba(244, 182, 200, 0.9);
+  border: 2px solid rgba(244, 182, 200, 0.92);
   background: linear-gradient(180deg, #fffdfb 0%, #fff1f5 100%);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.58), 0 0 22px rgba(244, 114, 182, 0.3);
+  box-shadow: 0 10px 22px rgba(8, 2, 14, 0.56);
   pointer-events: auto;
   cursor: pointer;
   user-select: none;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease;
 }
 
 .p3d-student-card.is-active {
   border-color: #fde047;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.68), 0 0 34px rgba(249, 168, 212, 0.85);
+  box-shadow: 0 14px 28px rgba(8, 2, 14, 0.66), 0 0 22px rgba(249, 168, 212, 0.72);
 }
 
 .p3d-student-card.is-zoomed {
   border-width: 2.5px;
   border-color: #fef08a;
-  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.78), 0 0 46px rgba(244, 114, 182, 0.95);
+  box-shadow: 0 18px 36px rgba(8, 2, 14, 0.76), 0 0 32px rgba(244, 114, 182, 0.85);
 }
 
 .p3d-order-pill {
@@ -2584,40 +2585,45 @@ button {
 
 @media (max-width: 767px) {
   .app-shell.portrait-mode .stage-root {
-    padding: 0.45rem 0.65rem 6.4rem;
+    padding: 0.35rem 0.48rem 5.45rem;
   }
   .portrait-hud-header {
-    padding: 0.44rem 0.85rem;
+    padding: 0.32rem 0.72rem;
+  }
+  .portrait-hud-header.is-compact {
+    padding: 0.2rem 0.65rem;
   }
   .portrait-hud-sub {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
   }
   .portrait-wish-dock {
-    padding: 0.48rem 0.8rem;
+    padding: 0.44rem 0.72rem;
   }
   .portrait-wish-prompt {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
   }
   .portrait-wish-message {
-    font-size: 0.76rem;
-    line-height: 1.42;
+    font-size: 0.74rem;
+    line-height: 1.38;
   }
   .portrait-hud-controls {
     width: 100%;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.38rem;
-    padding: 0.44rem;
-    border-radius: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.26rem;
+    padding: 0.3rem 0.34rem;
+    border-radius: 0.86rem;
   }
   .portrait-hud-controls button {
-    width: 100%;
-    padding: 0.46rem 0.5rem !important;
-    font-size: 0.72rem !important;
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0.34rem 0.48rem !important;
+    font-size: 0.68rem !important;
+    line-height: 1.15;
     justify-content: center;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 }
 
