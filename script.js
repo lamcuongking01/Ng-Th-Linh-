@@ -3227,7 +3227,7 @@
 
     startSmoothProgress(
       document.getElementById('letter-footer'),
-      6300,
+      9200,
       'Đang viết thư & mở phần tiếp theo...',
       'letter-next-btn',
       'Tiếp tục →',
@@ -3239,8 +3239,8 @@
       .concat([document.querySelector('.letter-sign')]);
     startHandwritingSequence(letterTargets, {
       startDelay: 180,
-      flyDuration: 680,
-      writeDuration: 5400
+      flyDuration: 850,
+      writeDuration: 8200
     });
   }
 
@@ -3499,7 +3499,7 @@
 
     startSmoothProgress(
       document.getElementById('bouquet-footer'),
-      3700,
+      5400,
       'Đang mở phần tiếp theo...',
       'bouquet-next-btn',
       'Tiếp theo →',
@@ -3510,8 +3510,8 @@
       .concat(Array.prototype.slice.call(document.querySelectorAll('.bouquet-wish-body p')));
     startHandwritingSequence(bouquetTargets, {
       startDelay: 160,
-      flyDuration: 640,
-      writeDuration: 2800
+      flyDuration: 820,
+      writeDuration: 4400
     });
   }
 
@@ -3597,8 +3597,8 @@
     ];
     startHandwritingSequence(wishTargets, {
       startDelay: 140,
-      flyDuration: 640,
-      writeDuration: 3100
+      flyDuration: 820,
+      writeDuration: 4800
     });
   }
 
@@ -3715,8 +3715,8 @@
     );
     startHandwritingSequence(galleryTargets, {
       startDelay: 150,
-      flyDuration: 600,
-      writeDuration: state.galleryView === 'swipe' ? 2200 : 2800
+      flyDuration: 780,
+      writeDuration: state.galleryView === 'swipe' ? 3500 : 4400
     });
   }
 
@@ -4156,8 +4156,8 @@
     if (finaleBannerWish) {
       startHandwritingSequence([finaleBannerWish], {
         startDelay: 180,
-        flyDuration: 620,
-        writeDuration: 2300
+        flyDuration: 800,
+        writeDuration: 3600
       });
     }
   }
