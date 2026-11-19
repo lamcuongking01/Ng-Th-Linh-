@@ -222,19 +222,19 @@
     {
       name: 'Vi Đức Tân',
       subtitle: 'Học sinh · Kỷ niệm 20/11',
-      src: 'https://prospective-emerald-pfl0ktxi.edgeone.dev/file.png',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/19cOuGM8B.jpg',
       fallback: FALLBACK_BOUQUET_SVG
     },
     {
       name: 'Hoàng Văn Lộc',
       subtitle: 'Học sinh · Kỷ niệm 20/11',
-      src: 'https://gorgeous-green-3afb7tsk.edgeone.dev/file.png',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/11JF08U7Z.jpg',
       fallback: FALLBACK_PETALS_SVG
     },
     {
       name: 'Hoàng Trung Nghĩa',
       subtitle: 'Học sinh · Kỷ niệm 20/11',
-      src: 'https://dusty-fuchsia-chhz8xo8.edgeone.dev/file.png',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/k9FVUgtg.jpg',
       fallback: FALLBACK_BOUQUET_SVG
     },
     {
@@ -277,6 +277,18 @@
       name: 'Triệu Hữu Thành',
       subtitle: 'Học sinh · Kỷ niệm 20/11',
       src: 'https://cdn.imagetourls.com/uploads/tyImg/7V6m2HGv.jpg',
+      fallback: FALLBACK_PETALS_SVG
+    },
+    {
+      name: 'Học sinh 19',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/14AYs0ulY.jpg',
+      fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Học sinh 20',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/9TC1R1b5.jpg',
       fallback: FALLBACK_PETALS_SVG
     }
   ];
