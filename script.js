@@ -162,7 +162,7 @@
     {
       name: 'Lâm Chí Cường',
       subtitle: 'Học sinh · Kỷ niệm 20/11',
-      src: 'https://cdn.phototourl.com/anon/2026-11-18-6e26e84d-cfa2-4313-b9ad-a7972f0d459e.jpg',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/p07tWHRv.jpg',
       fallback: FALLBACK_BOUQUET_SVG
     },
     {
@@ -280,15 +280,39 @@
       fallback: FALLBACK_PETALS_SVG
     },
     {
-      name: 'Học sinh 19',
+      name: 'Nông Viết Đăng',
       subtitle: 'Học sinh · Kỷ niệm 20/11',
       src: 'https://cdn.imagetourls.com/uploads/tyImg/14AYs0ulY.jpg',
       fallback: FALLBACK_BOUQUET_SVG
     },
     {
-      name: 'Học sinh 20',
+      name: 'Trần Thế Tâm',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/NnXikCQX.jpg',
+      fallback: FALLBACK_PETALS_SVG
+    },
+    {
+      name: 'Lịch Thị Hoa Ly',
       subtitle: 'Học sinh · Kỷ niệm 20/11',
       src: 'https://cdn.imagetourls.com/uploads/tyImg/9TC1R1b5.jpg',
+      fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Nông Văn Phúc',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/RloylSZ9.webp',
+      fallback: FALLBACK_PETALS_SVG
+    },
+    {
+      name: 'Lương Thị Mai Hoa',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/ZdQafqZK.jpg',
+      fallback: FALLBACK_BOUQUET_SVG
+    },
+    {
+      name: 'Vi Thị Ngọc Bính',
+      subtitle: 'Học sinh · Kỷ niệm 20/11',
+      src: 'https://cdn.imagetourls.com/uploads/tyImg/16DZwzA4X.jpg',
       fallback: FALLBACK_PETALS_SVG
     }
   ];
@@ -301,6 +325,7 @@
     creditsPaused: false,
     portraitPaused: false,
     portraitPairIdx: 0,
+    portraitWishTimer: null,
     curtainActive: false,
     handwritingCancel: null,
     waitTimer: null,
@@ -329,6 +354,7 @@
   var ambientGlitterCanvas = document.getElementById('ambient-glitter-canvas');
   var spaceWishesCanvas = document.getElementById('space-wishes-canvas');
   var portraitHeartCanvas = document.getElementById('portrait-heart-canvas');
+  var portrait3dStage = document.getElementById('portrait-3d-stage');
   var fireworksCanvas = document.getElementById('fireworks-canvas');
   var finaleFloralCanvas = document.getElementById('finale-floral-canvas');
   var topActionBtn = document.getElementById('top-action-btn');
@@ -3071,8 +3097,19 @@
       if (isSpace) startSpaceWishesLoop();
     }
     if (portraitHeartCanvas) {
-      portraitHeartCanvas.classList.toggle('hidden', !isPortrait);
-      if (isPortrait) startPortraitHeartLoop();
+      portraitHeartCanvas.classList.add('hidden');
+    }
+    if (portrait3dStage) {
+      portrait3dStage.classList.toggle('hidden', !isPortrait);
+      if (!isPortrait) {
+        if (state.portraitWishTimer) {
+          clearInterval(state.portraitWishTimer);
+          state.portraitWishTimer = null;
+        }
+        if (window.PortraitHeart3D) {
+          window.PortraitHeart3D.unmount();
+        }
+      }
     }
     fireworksCanvas.classList.toggle('hidden', !isFinale);
     if (finaleFloralCanvas) finaleFloralCanvas.classList.toggle('hidden', !isFinale);
@@ -3810,255 +3847,270 @@
     });
   }
 
+  var HEART_STAGE_WISHES = [
+    '“Gửi cô Ngô Thị Linh — từng nhịp đập lấp lánh này là lời cảm ơn chân thành nhất của 45 học trò dành cho người lái đò tận tụy.”',
+    '“Cảm ơn cô đã luôn kiên nhẫn, dịu dàng dìu dắt chúng em qua từng trang sách và năm tháng tuổi học trò rực rỡ.”',
+    '“Chúc cô ngày Nhà giáo Việt Nam 20/11 thật nhiều sức khỏe, bình an và mãi giữ nụ cười ấm áp bên bục giảng thân thương.”',
+    '“Mỗi bài học của cô là một ngọn đèn nhỏ soi sáng hành trang khôn lớn — dù đi xa đến đâu chúng em vẫn nhớ về cô.”',
+    '“Chúc cô luôn tràn đầy nhiệt huyết, hạnh phúc bên gia đình và tiếp tục chắp cánh cho thật nhiều thế hệ học trò bay cao.”',
+    '“Tri ân cô vì những giờ giảng đầy tâm huyết, những lời động viên âm thầm và tình thương cô dành cho cả lớp chúng em.”',
+    '“20/11 gửi ngàn đóa hoa rạng rỡ nhất cùng lòng biết ơn sâu sắc từ 45 trái tim nhỏ luôn yêu quý cô Ngô Thị Linh.”'
+  ];
+
   function renderPortrait() {
-    var totalPairs = Math.max(1, Math.ceil(PORTRAIT_ITEMS.length / 2));
-    var currentPair = ((state.portraitPairIdx % totalPairs) + totalPairs) % totalPairs;
-    state.portraitPairIdx = currentPair;
-
-    function getPairItems(pairIdx) {
-      var leftIdx = (pairIdx * 2) % PORTRAIT_ITEMS.length;
-      var rightIdx = (leftIdx + 1) % PORTRAIT_ITEMS.length;
-      return [PORTRAIT_ITEMS[leftIdx], PORTRAIT_ITEMS[rightIdx]];
+    if (state.portraitWishTimer) {
+      clearInterval(state.portraitWishTimer);
+      state.portraitWishTimer = null;
     }
+    var wishCursor = 0;
 
-    function preloadPairImages(pairIdx) {
-      var items = getPairItems(pairIdx);
-      items.forEach(function (item) {
-        if (!item || !item.src) return;
-        var img = new Image();
-        img.referrerPolicy = 'no-referrer';
-        img.src = item.src;
-      });
-    }
-
-    var initialPair = getPairItems(currentPair);
-    var leftItem = initialPair[0];
-    var rightItem = initialPair[1];
     var crownItem = {
       name: GALLERY_PHOTOS[1].title,
+      subtitle: GALLERY_PHOTOS[1].subtitle,
       src: GALLERY_PHOTOS[1].src,
       fallback: GALLERY_PHOTOS[1].fallback
     };
+    var ringCircumference = 2 * Math.PI * 54;
 
     stageRoot.innerHTML =
-      '<section class="portrait-stage-wrap">' +
+      '<section class="portrait-stage-wrap" id="portrait-arena" data-phase="outer" data-hold-progress="0" data-outer-zoom="6.90" data-inner-zoom="14.20" data-selected-index="0" data-ready="false">' +
         '<div class="portrait-hud-header">' +
-          '<span class="meta-label">Trang 6 · Trái tim đỏ &amp; Họa ảnh tri ân</span>' +
-          '<h2 class="portrait-hud-title">Họa ảnh kỷ niệm gửi Cô ' + TEACHER_NAME + '</h2>' +
-          '<p class="portrait-hud-sub">Kéo nhẹ để xoay trái tim đỏ 360° · Ảnh kỷ niệm cố định ở giữa trên đỉnh tim, hai ảnh hai bên trôi đều từ dưới lên</p>' +
+          '<span class="meta-label" id="portrait-phase-kicker">Trang 6 · Trái tim ánh sáng 3D</span>' +
+          '<h2 class="portrait-hud-title" id="portrait-phase-title">Trái tim tri ân gửi Cô ' + TEACHER_NAME + '</h2>' +
+          '<p class="portrait-hud-sub" id="portrait-phase-sub">Chạm kéo để xoay trái tim · Cuộn hoặc phóng to/thu nhỏ · Nhấn giữ thẳng vào trái tim 3 giây để bước vào bên trong</p>' +
         '</div>' +
-        '<div class="portrait-arena ' + (state.portraitPaused ? 'paused' : '') + '" id="portrait-arena" data-pair-index="' + currentPair + '" data-yaw="' + phYaw.toFixed(2) + '" data-pitch="' + phPitch.toFixed(2) + '">' +
-          '<div class="portrait-lane side-left">' +
-            '<figure class="portrait-side-card" id="portrait-card-left" title="Chạm để tạm dừng hoặc tiếp tục trôi">' +
-              '<div class="portrait-photo-box">' +
-                '<img id="portrait-img-left" src="' + leftItem.src + '" alt="Họa ảnh ' + leftItem.name + '" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + leftItem.fallback + '\'" />' +
-              '</div>' +
-              '<figcaption class="portrait-caption">' +
-                '<h3 class="portrait-student-name" id="portrait-name-left">' + leftItem.name + '</h3>' +
-                '<p class="portrait-student-sub" id="portrait-sub-left">' + leftItem.subtitle + '</p>' +
-              '</figcaption>' +
-            '</figure>' +
+
+        '<div class="portrait-center-overlay">' +
+          '<div class="portrait-hold-halo" id="portrait-hold-halo" aria-hidden="true">' +
+            '<svg class="portrait-hold-svg" viewBox="0 0 124 124">' +
+              '<circle class="hold-track" cx="62" cy="62" r="54"></circle>' +
+              '<circle class="hold-fill" id="portrait-hold-circle" cx="62" cy="62" r="54" stroke-dasharray="' + ringCircumference.toFixed(2) + '" stroke-dashoffset="' + ringCircumference.toFixed(2) + '"></circle>' +
+            '</svg>' +
+            '<div class="portrait-hold-label" id="portrait-hold-label">Giữ 3s... 0%</div>' +
           '</div>' +
-          '<div class="portrait-center-column">' +
-            '<figure class="portrait-crown-card" id="portrait-crown-card" title="Ảnh kỷ niệm trên đỉnh trái tim · Chạm để thả tim">' +
-              '<div class="portrait-crown-img-wrap">' +
-                '<img src="' + crownItem.src + '" alt="' + crownItem.name + '" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + crownItem.fallback + '\'" />' +
-              '</div>' +
-              '<figcaption class="portrait-crown-title">' + crownItem.name + '</figcaption>' +
-            '</figure>' +
-            '<div class="portrait-heart-slot" id="portrait-heart-slot">' +
-              '<p class="portrait-heart-hint">↻ Kéo để xoay trái tim đỏ</p>' +
+        '</div>' +
+
+        '<div class="portrait-bottom-stack">' +
+          '<div class="portrait-wish-dock" id="portrait-wish-dock">' +
+            '<p class="portrait-wish-prompt">Chạm và giữ thẳng vào trái tim 3 giây để bước vào bên trong ❤️</p>' +
+            '<p class="portrait-wish-message" id="portrait-wish-quote">' + HEART_STAGE_WISHES[0] + '</p>' +
+            '<div class="portrait-wish-meta-row">' +
+              '<button type="button" id="portrait-wish-prev-btn" class="portrait-wish-nav-btn" aria-label="Lời chúc trước">‹</button>' +
+              '<span class="portrait-wish-counter" id="portrait-wish-counter">Lời chúc 1 / ' + HEART_STAGE_WISHES.length + '</span>' +
+              '<button type="button" id="portrait-wish-next-btn" class="portrait-wish-nav-btn" aria-label="Lời chúc tiếp">›</button>' +
             '</div>' +
           '</div>' +
-          '<div class="portrait-lane side-right">' +
-            '<figure class="portrait-side-card" id="portrait-card-right" title="Chạm để tạm dừng hoặc tiếp tục trôi">' +
-              '<div class="portrait-photo-box">' +
-                '<img id="portrait-img-right" src="' + rightItem.src + '" alt="Họa ảnh ' + rightItem.name + '" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + rightItem.fallback + '\'" />' +
-              '</div>' +
-              '<figcaption class="portrait-caption">' +
-                '<h3 class="portrait-student-name" id="portrait-name-right">' + rightItem.name + '</h3>' +
-                '<p class="portrait-student-sub" id="portrait-sub-right">' + rightItem.subtitle + '</p>' +
-              '</figcaption>' +
-            '</figure>' +
+
+          '<p class="portrait-inner-wish hidden" id="portrait-inner-wish">' + HEART_STAGE_WISHES[0] + '</p>' +
+
+          '<div class="portrait-hud-controls" id="portrait-controls-outer">' +
+            '<button type="button" id="portrait-zoom-in-btn" class="btn-dark-pill">＋ Phóng gần tim</button>' +
+            '<button type="button" id="portrait-zoom-out-btn" class="btn-dark-pill">－ Thu xa tim</button>' +
+            '<button type="button" id="portrait-to-finale-outer" class="btn-primary">✨ Đến trang kết →</button>' +
           '</div>' +
-        '</div>' +
-        '<div class="portrait-hud-controls">' +
-          '<button type="button" id="portrait-toggle-btn" class="btn-dark-pill">' + (state.portraitPaused ? '▶ Tiếp tục trôi ảnh' : '❚❚ Tạm dừng trôi ảnh') + '</button>' +
-          '<button type="button" id="portrait-next-btn" class="btn-dark-pill">⏭ Cặp ảnh tiếp (' + (currentPair + 1) + '/' + totalPairs + ')</button>' +
-          '<button type="button" id="portrait-burst-btn" class="btn-dark-pill">❤️ Xoay &amp; thả tim đỏ</button>' +
-          '<button type="button" id="portrait-to-finale-btn" class="btn-primary" style="padding:0.62rem 1.4rem;font-size:0.84rem;">✨ Đến trang kết →</button>' +
+
+          '<div class="portrait-hud-controls hidden" id="portrait-controls-inner">' +
+            '<button type="button" id="portrait-prev-btn" class="btn-dark-pill">‹ Ảnh trước</button>' +
+            '<button type="button" id="portrait-open-photo-btn" class="btn-primary">✨ Mở ảnh</button>' +
+            '<button type="button" id="portrait-next-btn" class="btn-dark-pill">Ảnh tiếp ›</button>' +
+            '<button type="button" id="portrait-inner-zoom-in-btn" class="btn-dark-pill">＋ Gần</button>' +
+            '<button type="button" id="portrait-inner-zoom-out-btn" class="btn-dark-pill">－ Xa</button>' +
+            '<button type="button" id="portrait-exit-inner-btn" class="btn-dark-pill">↩ Ra tim</button>' +
+            '<button type="button" id="portrait-to-finale-inner" class="btn-dark-pill">Trang kết →</button>' +
+          '</div>' +
+
+          '<div class="portrait-hud-controls hidden" id="portrait-controls-zoom">' +
+            '<button type="button" id="portrait-zoom-prev-btn" class="btn-dark-pill">‹ Ảnh bên trái</button>' +
+            '<button type="button" id="portrait-close-photo-btn" class="btn-primary">✕ Thu nhỏ về vòng tròn</button>' +
+            '<button type="button" id="portrait-zoom-next-btn" class="btn-dark-pill">Ảnh bên phải ›</button>' +
+            '<button type="button" id="portrait-exit-zoom-btn" class="btn-dark-pill">↩ Ra ngoài tim</button>' +
+          '</div>' +
         '</div>' +
       '</section>';
 
     var arena = document.getElementById('portrait-arena');
-    var cardLeft = document.getElementById('portrait-card-left');
-    var cardRight = document.getElementById('portrait-card-right');
-    var imgLeft = document.getElementById('portrait-img-left');
-    var imgRight = document.getElementById('portrait-img-right');
-    var nameLeft = document.getElementById('portrait-name-left');
-    var nameRight = document.getElementById('portrait-name-right');
-    var subLeft = document.getElementById('portrait-sub-left');
-    var subRight = document.getElementById('portrait-sub-right');
-    var toggleBtn = document.getElementById('portrait-toggle-btn');
-    var nextBtn = document.getElementById('portrait-next-btn');
-    var burstBtn = document.getElementById('portrait-burst-btn');
-    var crownCard = document.getElementById('portrait-crown-card');
+    var hudHeader = arena ? arena.querySelector('.portrait-hud-header') : null;
+    var kickerEl = document.getElementById('portrait-phase-kicker');
+    var titleEl = document.getElementById('portrait-phase-title');
+    var subEl = document.getElementById('portrait-phase-sub');
+    var holdHalo = document.getElementById('portrait-hold-halo');
+    var holdCircle = document.getElementById('portrait-hold-circle');
+    var holdLabel = document.getElementById('portrait-hold-label');
+    var wishDock = document.getElementById('portrait-wish-dock');
+    var wishQuoteEl = document.getElementById('portrait-wish-quote');
+    var wishCounterEl = document.getElementById('portrait-wish-counter');
+    var innerWishEl = document.getElementById('portrait-inner-wish');
+    var outerControls = document.getElementById('portrait-controls-outer');
+    var innerControls = document.getElementById('portrait-controls-inner');
+    var zoomControls = document.getElementById('portrait-controls-zoom');
 
-    requestAnimationFrame(updatePortraitSlotRect);
-
-    // Preload next pairs silently for seamless swaps
-    preloadPairImages((currentPair + 1) % totalPairs);
-    preloadPairImages((currentPair + 2) % totalPairs);
-
-    function applyPortraitPair(pairIdx, restartAnim) {
-      var normalized = ((pairIdx % totalPairs) + totalPairs) % totalPairs;
-      state.portraitPairIdx = normalized;
-      var pair = getPairItems(normalized);
-      var l = pair[0];
-      var r = pair[1];
-
-      if (arena) arena.setAttribute('data-pair-index', String(normalized));
-
-      if (imgLeft) {
-        imgLeft.onerror = function () {
-          this.onerror = null;
-          this.src = l.fallback;
-        };
-        imgLeft.alt = 'Họa ảnh ' + l.name;
-        imgLeft.src = l.src;
+    function showHeartWish(nextIdx, animate) {
+      if (state.stage !== 'portrait') return;
+      wishCursor = ((nextIdx % HEART_STAGE_WISHES.length) + HEART_STAGE_WISHES.length) % HEART_STAGE_WISHES.length;
+      var text = HEART_STAGE_WISHES[wishCursor];
+      if (wishCounterEl) {
+        wishCounterEl.textContent = 'Lời chúc ' + (wishCursor + 1) + ' / ' + HEART_STAGE_WISHES.length;
       }
-      if (nameLeft) nameLeft.textContent = l.name;
-      if (subLeft) subLeft.textContent = l.subtitle;
-
-      if (imgRight) {
-        imgRight.onerror = function () {
-          this.onerror = null;
-          this.src = r.fallback;
-        };
-        imgRight.alt = 'Họa ảnh ' + r.name;
-        imgRight.src = r.src;
+      if (innerWishEl) {
+        innerWishEl.textContent = text;
       }
-      if (nameRight) nameRight.textContent = r.name;
-      if (subRight) subRight.textContent = r.subtitle;
-
-      if (nextBtn) {
-        nextBtn.textContent = '⏭ Cặp ảnh tiếp (' + (normalized + 1) + '/' + totalPairs + ')';
-      }
-
-      if (restartAnim && cardLeft && cardRight) {
-        cardLeft.style.animation = 'none';
-        cardRight.style.animation = 'none';
-        void cardLeft.offsetWidth;
-        cardLeft.style.animation = '';
-        cardRight.style.animation = '';
-      }
-
-      preloadPairImages((normalized + 1) % totalPairs);
-      preloadPairImages((normalized + 2) % totalPairs);
-    }
-
-    if (cardLeft) {
-      cardLeft.addEventListener('animationiteration', function () {
-        applyPortraitPair(state.portraitPairIdx + 1, false);
-      });
-    }
-
-    function syncPortraitPauseUI() {
-      if (arena) arena.classList.toggle('paused', state.portraitPaused);
-      if (toggleBtn) toggleBtn.textContent = state.portraitPaused ? '▶ Tiếp tục trôi ảnh' : '❚❚ Tạm dừng trôi ảnh';
-    }
-
-    var startX = 0;
-    var startY = 0;
-    var prevX = 0;
-    var prevY = 0;
-    var downTarget = null;
-    var movedDist = 0;
-
-    arena.addEventListener('pointerdown', function (e) {
-      if (e.target.closest('button')) return;
-      phDragging = true;
-      arena.classList.add('is-dragging');
-      startX = e.clientX;
-      startY = e.clientY;
-      prevX = e.clientX;
-      prevY = e.clientY;
-      movedDist = 0;
-      downTarget = e.target;
-      phVelYaw = 0;
-      phVelPitch = 0;
-      if (arena.setPointerCapture) {
-        try { arena.setPointerCapture(e.pointerId); } catch (_) {}
-      }
-    });
-
-    arena.addEventListener('pointermove', function (e) {
-      if (!phDragging) return;
-      var dx = e.clientX - prevX;
-      var dy = e.clientY - prevY;
-      prevX = e.clientX;
-      prevY = e.clientY;
-      movedDist = Math.max(movedDist, Math.hypot(e.clientX - startX, e.clientY - startY));
-      phVelYaw = dx * 0.0085;
-      phVelPitch = dy * 0.0065;
-      phYaw += phVelYaw;
-      phPitch = Math.max(-0.68, Math.min(0.68, phPitch + phVelPitch));
-      arena.setAttribute('data-yaw', phYaw.toFixed(2));
-      arena.setAttribute('data-pitch', phPitch.toFixed(2));
-    });
-
-    function endPortraitDrag(e) {
-      if (!phDragging) return;
-      phDragging = false;
-      arena.classList.remove('is-dragging');
-      arena.setAttribute('data-yaw', phYaw.toFixed(2));
-      arena.setAttribute('data-pitch', phPitch.toFixed(2));
-      if (movedDist < 6) {
-        if (downTarget && downTarget.closest('.portrait-side-card')) {
-          state.portraitPaused = !state.portraitPaused;
-          syncPortraitPauseUI();
+      if (wishQuoteEl) {
+        if (animate) {
+          wishQuoteEl.classList.add('is-fading');
+          setTimeout(function () {
+            if (state.stage !== 'portrait' || !wishQuoteEl) return;
+            wishQuoteEl.textContent = text;
+            wishQuoteEl.classList.remove('is-fading');
+          }, 180);
         } else {
-          playChime([659.25, 880.0, 1046.5], 0.05, 0.032);
-          spawnPortraitHeartBurst(e.clientX, e.clientY);
+          wishQuoteEl.textContent = text;
         }
       }
-      downTarget = null;
     }
 
-    arena.addEventListener('pointerup', endPortraitDrag);
-    arena.addEventListener('pointercancel', endPortraitDrag);
+    function resetHeartWishTimer() {
+      if (state.portraitWishTimer) clearInterval(state.portraitWishTimer);
+      state.portraitWishTimer = setInterval(function () {
+        if (state.stage !== 'portrait') return;
+        showHeartWish(wishCursor + 1, true);
+      }, 5200);
+    }
+    resetHeartWishTimer();
 
-    toggleBtn.addEventListener('click', function () {
-      state.portraitPaused = !state.portraitPaused;
-      syncPortraitPauseUI();
-    });
+    function syncPortraitHud(snap) {
+      if (!arena || state.stage !== 'portrait') return;
+      arena.setAttribute('data-phase', snap.phase);
+      arena.setAttribute('data-hold-progress', snap.holdProgress.toFixed(3));
+      arena.setAttribute('data-outer-zoom', snap.outerZoomDist.toFixed(2));
+      arena.setAttribute('data-inner-zoom', snap.innerZoomDist.toFixed(2));
+      arena.setAttribute('data-selected-index', String(snap.selectedIndex));
+      arena.setAttribute('data-ready', 'true');
 
-    nextBtn.addEventListener('click', function () {
-      playChime([659.25, 880.0], 0.04, 0.025);
-      applyPortraitPair(state.portraitPairIdx + 1, true);
-    });
+      var isHolding = snap.phase === 'holding';
+      var isOuter = snap.phase === 'outer' || snap.phase === 'holding' || snap.phase === 'exiting';
+      var isDiving = snap.phase === 'diving';
+      var isInner = snap.phase === 'inner';
+      var isPhotoZoom = snap.phase === 'photo-zoom';
 
-    burstBtn.addEventListener('click', function () {
-      spawnButtonBurst(this);
-      playChime([523.25, 659.25, 783.99, 1046.5], 0.055, 0.038);
-      phVelYaw += 0.095;
-      arena.setAttribute('data-yaw', phYaw.toFixed(2));
-      updatePortraitSlotRect();
-      var cx = phSlotRect ? (phSlotRect.left + phSlotRect.width * 0.5) : (window.innerWidth * 0.5);
-      var cy = phSlotRect ? (phSlotRect.top + phSlotRect.height * 0.44) : (window.innerHeight * 0.56);
-      spawnPortraitHeartBurst(cx, cy);
-    });
+      if (hudHeader) hudHeader.classList.toggle('is-compact', isInner || isPhotoZoom);
+      if (holdHalo) holdHalo.classList.toggle('is-holding', isHolding);
+      if (holdCircle) {
+        holdCircle.style.strokeDashoffset = (ringCircumference * (1 - snap.holdProgress)).toFixed(2);
+      }
+      if (holdLabel) {
+        var secsLeft = Math.max(0, 3 - snap.holdSeconds);
+        holdLabel.textContent = snap.holdProgress >= 0.99
+          ? 'Đang mở khóa...'
+          : ('Giữ ' + secsLeft.toFixed(1) + 's · ' + Math.round(snap.holdProgress * 100) + '%');
+      }
 
-    if (crownCard) {
-      crownCard.addEventListener('click', function (e) {
-        if (movedDist >= 6) return;
-        e.stopPropagation();
-        spawnButtonBurst(this);
-        playChime([659.25, 880.0, 1174.66], 0.05, 0.035);
+      if (wishDock) wishDock.classList.toggle('hidden', !isOuter);
+      if (innerWishEl) innerWishEl.classList.toggle('hidden', !isInner);
+      if (outerControls) outerControls.classList.toggle('hidden', !isOuter);
+      if (innerControls) innerControls.classList.toggle('hidden', !isInner);
+      if (zoomControls) zoomControls.classList.toggle('hidden', !isPhotoZoom);
+
+      var activeName = snap.activeItem ? snap.activeItem.name : '';
+      if (kickerEl && titleEl && subEl) {
+        if (isDiving) {
+          kickerEl.textContent = 'Đang bước vào bên trong trái tim...';
+          titleEl.textContent = 'Mở ra miền ký ức 45 học trò';
+          subEl.textContent = 'Những hạt ánh sáng đang hé mở khung cảnh tri ân Cô ' + TEACHER_NAME;
+        } else if (isInner) {
+          kickerEl.textContent = 'Bên trong trái tim · Ảnh ' + (snap.selectedIndex + 1) + '/' + snap.totalItems;
+          titleEl.textContent = activeName || ('Kỷ niệm bên Cô ' + TEACHER_NAME);
+          subEl.textContent = 'Cuộn chuột hoặc bấm ＋/－ để phóng gần · thu xa ngắm trái tim đang đập bên ngoài';
+        } else if (isPhotoZoom) {
+          kickerEl.textContent = 'Đang phóng to · Ảnh ' + (snap.selectedIndex + 1) + '/' + snap.totalItems;
+          titleEl.textContent = activeName;
+          subEl.textContent = 'Chạm 2 ảnh bên cạnh để lướt sang bạn kế bên';
+        } else {
+          kickerEl.textContent = 'Trang 6 · Trái tim ánh sáng 3D';
+          titleEl.textContent = 'Trái tim tri ân gửi Cô ' + TEACHER_NAME;
+          subEl.textContent = isHolding
+            ? 'Tiếp tục giữ thẳng vào trái tim thêm chút nữa để bước vào bên trong...'
+            : 'Chạm kéo để xoay trái tim · Cuộn để phóng to/thu nhỏ · Nhấn giữ thẳng vào trái tim 3 giây để vào bên trong';
+        }
+      }
+    }
+
+    function mountPortrait3D() {
+      if (state.stage !== 'portrait' || !portrait3dStage) return;
+      if (!window.PortraitHeart3D) {
+        setTimeout(mountPortrait3D, 45);
+        return;
+      }
+      window.PortraitHeart3D.mount({
+        container: portrait3dStage,
+        items: PORTRAIT_ITEMS,
+        crown: crownItem,
+        onStateChange: syncPortraitHud,
+        onEnterHeart: function () {
+          playChime([523.25, 659.25, 783.99, 1046.5], 0.06, 0.045);
+        },
+        onPhotoClickChime: function () {
+          playChime([659.25, 880.0], 0.04, 0.028);
+        }
       });
     }
+    mountPortrait3D();
 
-    document.getElementById('portrait-to-finale-btn').addEventListener('click', function () {
+    document.getElementById('portrait-wish-prev-btn').addEventListener('click', function () {
+      playChime([659.25, 783.99], 0.035, 0.02);
+      showHeartWish(wishCursor - 1, true);
+      resetHeartWishTimer();
+    });
+    document.getElementById('portrait-wish-next-btn').addEventListener('click', function () {
+      playChime([659.25, 880.0], 0.035, 0.02);
+      showHeartWish(wishCursor + 1, true);
+      resetHeartWishTimer();
+    });
+    document.getElementById('portrait-zoom-in-btn').addEventListener('click', function () {
+      if (window.PortraitHeart3D) window.PortraitHeart3D.adjustOuterZoom(-1.25);
+    });
+    document.getElementById('portrait-zoom-out-btn').addEventListener('click', function () {
+      if (window.PortraitHeart3D) window.PortraitHeart3D.adjustOuterZoom(1.25);
+    });
+    document.getElementById('portrait-prev-btn').addEventListener('click', function () {
+      playChime([659.25, 783.99], 0.035, 0.022);
+      if (window.PortraitHeart3D) window.PortraitHeart3D.stepStudent(-1);
+    });
+    document.getElementById('portrait-next-btn').addEventListener('click', function () {
+      playChime([659.25, 880.0], 0.035, 0.022);
+      if (window.PortraitHeart3D) window.PortraitHeart3D.stepStudent(1);
+    });
+    document.getElementById('portrait-inner-zoom-in-btn').addEventListener('click', function () {
+      if (window.PortraitHeart3D) window.PortraitHeart3D.adjustInnerZoom(-1.8);
+    });
+    document.getElementById('portrait-inner-zoom-out-btn').addEventListener('click', function () {
+      if (window.PortraitHeart3D) window.PortraitHeart3D.adjustInnerZoom(1.8);
+    });
+    document.getElementById('portrait-open-photo-btn').addEventListener('click', function () {
+      playChime([523.25, 659.25, 987.77], 0.045, 0.03);
+      if (window.PortraitHeart3D) window.PortraitHeart3D.openActivePhoto();
+    });
+    document.getElementById('portrait-zoom-prev-btn').addEventListener('click', function () {
+      playChime([659.25, 783.99], 0.035, 0.022);
+      if (window.PortraitHeart3D) window.PortraitHeart3D.stepStudent(-1);
+    });
+    document.getElementById('portrait-zoom-next-btn').addEventListener('click', function () {
+      playChime([659.25, 880.0], 0.035, 0.022);
+      if (window.PortraitHeart3D) window.PortraitHeart3D.stepStudent(1);
+    });
+    document.getElementById('portrait-close-photo-btn').addEventListener('click', function () {
+      if (window.PortraitHeart3D) window.PortraitHeart3D.closeActivePhoto();
+    });
+    document.getElementById('portrait-exit-inner-btn').addEventListener('click', function () {
+      if (window.PortraitHeart3D) window.PortraitHeart3D.exitToOuter();
+    });
+    document.getElementById('portrait-exit-zoom-btn').addEventListener('click', function () {
+      if (window.PortraitHeart3D) window.PortraitHeart3D.exitToOuter();
+    });
+
+    document.getElementById('portrait-to-finale-outer').addEventListener('click', function () {
+      setStage('finale', this);
+    });
+    document.getElementById('portrait-to-finale-inner').addEventListener('click', function () {
       setStage('finale', this);
     });
   }
